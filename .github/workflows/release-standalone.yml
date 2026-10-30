@@ -32,19 +32,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+        with:
+          standalone: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: npm ci --no-audit --no-fund
+      - run: pnpm install --frozen-lockfile
 
       # next.config.ts 只在 DOCKER_BUILD=1 时启用 output: 'standalone'
       - name: 构建 standalone 产物
         env:
           DOCKER_BUILD: '1'
           NEXT_TELEMETRY_DISABLED: '1'
-        run: npm run build
+        run: pnpm run build
 
       - name: 组装可移植包目录
         working-directory: .next/standalone
@@ -58,6 +62,15 @@ jobs:
           # sharp 会把构建机的平台二进制（@img/sharp-linuxmusl-x64）带进产物，
           # 不剔除的话这个包只能在 x64 上跑，失去跨架构的意义
           rm -rf node_modules/sharp node_modules/@img
+          # pnpm 的真实包位于虚拟存储中，删除顶层链接并不会移除二进制。
+          if [ -d node_modules/.pnpm ]; then
+            find node_modules/.pnpm -mindepth 1 -maxdepth 1 -type d \
+              \( -name 'sharp@*' -o -name '@img+sharp-*@*' \) \
+              -exec rm -rf {} +
+            # 清理 next 等包内部指向已删除 sharp 包的链接。
+            find node_modules -type l \
+              \( -name sharp -o -path '*/@img/sharp-*' \) -delete
+          fi
 
           # next build 会把项目根的 .env* 一并复制进 standalone（本地实测会带 PASSWORD）。
           # 发布包是公开下载的，绝不能带任何环境文件；删完再兜底校验

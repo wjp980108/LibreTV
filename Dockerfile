@@ -2,13 +2,15 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# npm 仅用于引导安装 packageManager 指定的 pnpm，项目依赖统一由 pnpm 管理。
+RUN npm install --global "$(node -p "require('./package.json').packageManager")" \
+    && pnpm install --frozen-lockfile
 
 COPY . .
 ENV DOCKER_BUILD=1
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN pnpm run build
 
 # ---- 运行阶段 ----
 FROM node:22-alpine AS runner

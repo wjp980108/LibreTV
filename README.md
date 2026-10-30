@@ -95,10 +95,16 @@ PASSWORD=your-password PORT=8080 node server.js
 
 ### 手动运行
 
+源码安装与构建需要 Node.js 22.13+ 和 pnpm 11.21.0（固定在 `package.json` 的 `packageManager` 字段中）。先安装 pnpm：
+
 ```bash
-npm install
-PASSWORD=your-password npm run build
-PASSWORD=your-password npm start   # 监听 8080
+npm install --global pnpm@11.21.0
+```
+
+```bash
+pnpm install --frozen-lockfile
+PASSWORD=your-password pnpm run build
+PASSWORD=your-password pnpm start   # 监听 8080
 ```
 
 ### 环境变量
@@ -230,21 +236,28 @@ PASSWORD=your-password npm start   # 监听 8080
 
 ## 开发
 
+使用 Node.js 22.13+ 和 pnpm 11.21.0；pnpm 安装方式见上方「手动运行」。首次从 npm 切换时，先删除旧的 `node_modules`，再安装依赖。
+
 ```bash
-npm install
-PASSWORD=dev-password npm run dev   # http://localhost:8080
-npm test                            # 核心库单元测试（cms-parser / m3u8 / ssrf）
-npm run typecheck
+pnpm install --frozen-lockfile
+PASSWORD=dev-password pnpm run dev   # http://localhost:8080
+pnpm test                            # 核心库单元测试（cms-parser / m3u8 / ssrf）
+pnpm run lint
+pnpm run typecheck
 ```
 
+Windows 下手动设置 `DOCKER_BUILD=1` 构建 standalone 时，Next.js 需要创建符号链接的权限，否则可能报 `EPERM`；可改在 Linux / Docker 中构建。常规 `pnpm run build` 不受此限制，发布包与 Docker 镜像由 Linux CI 构建。
+
 测试范围、发布流程与文档结构见 [开发文档](https://libretv.is-an.org/wiki/Development.html)。
+
+依赖变更使用 `pnpm add` / `pnpm remove`，并提交 `package.json` 与 `pnpm-lock.yaml`。新增依赖若需要安装脚本，请检查后使用 `pnpm approve-builds`，并提交 `pnpm-workspace.yaml` 中的许可配置。
 
 ## 发布新版本
 
 版本号以 `package.json` 为单一来源，发布镜像由 GitHub Actions 自动完成：
 
 ```bash
-npm version patch       # 或 minor / major；会更新 package.json 并打 git tag
+pnpm version patch       # 或 minor / major；会更新 package.json 并打 git tag
 git push && git push --tags
 ```
 

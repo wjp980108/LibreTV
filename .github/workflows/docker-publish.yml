@@ -8,7 +8,7 @@ name: docker-publish
 #
 # 多架构构建拆分：amd64 与 arm64 各自跑在原生 runner 上（GitHub 公开仓库
 # 免费提供 ubuntu-24.04-arm），按 digest 推送后合并 manifest。QEMU 跨架构
-# 模拟 npm ci / next build 极慢且不稳（Illegal instruction 崩溃），不再使用。
+# 模拟依赖安装 / next build 极慢且不稳（Illegal instruction 崩溃），不再使用。
 # Docker Hub 不重新构建：merge 阶段用 imagetools 把 GHCR 的同一组 digest
 # 复制过去，两个 registry 的多架构镜像 digest 完全一致。
 
@@ -33,10 +33,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          standalone: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       # tag 触发时强制 tag 与 package.json 版本一致，避免镜像标签与 /api/status 返回值不一致
       - name: 校验 tag 与 package.json 版本一致
@@ -45,13 +49,14 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           pkg="$(node -p "require('./package.json').version")"
           if [ "$tag" != "$pkg" ]; then
-            echo "::error::tag v${tag} 与 package.json 版本 ${pkg} 不一致。请改用 npm version ${tag} 更新版本后再推 tag。"
+            echo "::error::tag v${tag} 与 package.json 版本 ${pkg} 不一致。请改用 pnpm version ${tag} 更新版本后再推 tag。"
             exit 1
           fi
 
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm test
 
   build:
     needs: verify

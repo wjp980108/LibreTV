@@ -1,5 +1,5 @@
 # ---- 构建阶段 ----
-FROM node:22-alpine AS builder
+FROM node:24.22.2-alpine AS builder
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -13,7 +13,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
 # ---- 运行阶段 ----
-FROM node:22-alpine AS runner
+FROM node:24.22.2-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

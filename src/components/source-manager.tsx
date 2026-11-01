@@ -188,7 +188,7 @@ function TabRow<T extends string>({
               variant === 'primary'
                 ? cn(
                     'px-2 py-1.5 text-xs',
-                    active ? 'bg-surface-raised text-accent font-medium shadow-sm' : 'text-muted hover:text-content'
+                    active ? 'bg-surface-raised text-accent font-medium shadow-xs' : 'text-muted hover:text-content'
                   )
                 : cn(
                     'px-2.5 py-1 text-xs',

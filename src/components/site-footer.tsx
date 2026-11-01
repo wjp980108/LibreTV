@@ -79,7 +79,7 @@ function UpdateTip({ update }: { update: UpstreamUpdate | null }) {
           : '正在检测更新…';
   if (!tip) return null;
   return (
-    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-chip px-2 py-1 text-faint shadow-sm group-hover:block">
+    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-chip px-2 py-1 text-faint shadow-xs group-hover:block">
       {tip}
     </span>
   );

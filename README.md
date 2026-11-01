@@ -1,6 +1,6 @@
 # LibreTV
 
-LibreTV Next.js 迁移版：免费在线视频聚合搜索与观看平台。基于 Next.js 15（App Router）+ TypeScript + Tailwind CSS，播放内核为 ArtPlayer + hls.js，支持亮暗双主题。
+LibreTV Next.js 迁移版：免费在线视频聚合搜索与观看平台。基于 Next.js 16（App Router）+ TypeScript 6 + Tailwind CSS 4，播放内核为 ArtPlayer + hls.js，支持亮暗双主题。
 
 > 🏠 **官网**：[LibreTV 官网](https://libretv.is-an.org/)
 >
@@ -91,14 +91,14 @@ PASSWORD=your-password PORT=8080 node server.js
 
 > 不传 `PORT` 时监听 **3000**（standalone 的 `server.js` 默认值），与 Docker 镜像内的 8080 不同，按需显式指定即可。
 
-包内是 Next.js standalone 产物（`server.js` + `public` + 静态资源 + 运行时依赖），**与 CPU 架构无关**，x86_64 / arm64 / armv7 都能跑，适合用不了 Docker 的设备（如 ARMv7 路由器）。环境变量与 Docker 部署一致（`PASSWORD`、`PORT` 等），需要 Node 18+；包内不含 `sharp`（本项目不开图片优化，封面走代理原图）。
+包内是 Next.js standalone 产物（`server.js` + `public` + 静态资源 + 运行时依赖），**与 CPU 架构无关**，x86_64 / arm64 / armv7 都能跑，适合用不了 Docker 的设备（如 ARMv7 路由器）。环境变量与 Docker 部署一致（`PASSWORD`、`PORT` 等），需要 Node.js 24.22.2+；包内不含 `sharp`（本项目不开图片优化，封面走代理原图）。
 
 ### 手动运行
 
-源码安装与构建需要 Node.js 22.13+ 和 pnpm 11.21.0（固定在 `package.json` 的 `packageManager` 字段中）。先安装 pnpm：
+源码安装与构建需要 Node.js 24.22.2+（推荐版本固定在 `.nvmrc`，CI 同步读取）和 pnpm 12.16.1（固定在 `package.json` 的 `packageManager` 字段中）。先安装 pnpm：
 
 ```bash
-npm install --global pnpm@11.21.0
+npm install --global pnpm@12.16.1
 ```
 
 ```bash
@@ -236,7 +236,7 @@ PASSWORD=your-password pnpm start   # 监听 8080
 
 ## 开发
 
-使用 Node.js 22.13+ 和 pnpm 11.21.0；pnpm 安装方式见上方「手动运行」。首次从 npm 切换时，先删除旧的 `node_modules`，再安装依赖。
+使用 Node.js 24.22.2+ 和 pnpm 12.16.1；pnpm 安装方式见上方「手动运行」。首次从 npm 切换时，先删除旧的 `node_modules`，再安装依赖。
 
 ```bash
 pnpm install --frozen-lockfile

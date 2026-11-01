@@ -135,7 +135,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="bg-surface-raised rounded-xl w-full max-w-3xl shadow-2xl animate-slide-up outline-none"
+        className="bg-surface-raised rounded-xl w-full max-w-3xl shadow-2xl animate-slide-up outline-hidden"
         role="dialog"
         aria-modal="true"
         aria-label={`${item.name} 详情`}

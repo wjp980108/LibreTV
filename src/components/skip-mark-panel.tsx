@@ -333,7 +333,7 @@ export function SkipMarkPanel({
                   <span className="flex min-w-0 items-center gap-1.5 text-xs">
                     <span
                       aria-hidden
-                      className="inline-block h-2 w-2 shrink-0 rounded-sm"
+                      className="inline-block h-2 w-2 shrink-0 rounded-xs"
                       style={{ backgroundColor: SEGMENT_COLORS[seg.type] }}
                     />
                     <span className="text-muted">[{label}]</span>
@@ -407,7 +407,7 @@ export function SkipMarkPanel({
           <span key={t} className="inline-flex items-center gap-1">
             <span
               aria-hidden
-              className="inline-block h-2 w-2 rounded-sm"
+              className="inline-block h-2 w-2 rounded-xs"
               style={{ backgroundColor: SEGMENT_COLORS[t] }}
             />
             {SEGMENT_LABELS[t]}

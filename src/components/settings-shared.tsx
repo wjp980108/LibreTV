@@ -101,14 +101,14 @@ export function Switch({
       title={title ?? label}
       className={cn(
         'relative h-[22px] w-10 shrink-0 rounded-full transition-colors duration-200',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40',
         checked ? 'bg-accent' : 'bg-chip ring-1 ring-inset ring-line'
       )}
       onClick={() => onChange(!checked)}
     >
       <span
         className={cn(
-          'absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ease-out',
+          'absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-xs transition-transform duration-200 ease-out',
           checked ? 'translate-x-[18px]' : 'translate-x-0'
         )}
       />

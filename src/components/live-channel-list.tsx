@@ -447,10 +447,10 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
             </div>
             {/* 左右渐隐：提示这一栏还能横向拖动 */}
             {chipStrip.edges.left && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-surface-raised to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-surface-raised to-transparent" />
             )}
             {chipStrip.edges.right && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface-raised to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-surface-raised to-transparent" />
             )}
           </div>
         </div>
@@ -462,7 +462,7 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
         data-channel-list
         tabIndex={0}
         onKeyDown={onListKeyDown}
-        className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-2 pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-2 pb-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
       >
         {filtered.length === 0 ? (
           <EmptyState

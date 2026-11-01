@@ -1,9 +1,48 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* inline 让语义色在使用处读取当前主题的 RGB 变量。 */
+@theme inline {
+  --color-page: rgb(var(--c-page));
+  --color-surface: rgb(var(--c-surface));
+  --color-surface-raised: rgb(var(--c-surface-raised));
+  --color-card: rgb(var(--c-card));
+  --color-chip: rgb(var(--c-chip));
+  --color-hover: rgb(var(--c-hover));
+  --color-line: rgb(var(--c-line));
+  --color-content: rgb(var(--c-content));
+  --color-muted: rgb(var(--c-muted));
+  --color-faint: rgb(var(--c-faint));
+  --color-accent: rgb(var(--c-accent));
+  --color-accent-hover: rgb(var(--c-accent-hover));
+  --color-danger: rgb(var(--c-danger));
+  --color-danger-hover: rgb(var(--c-danger-hover));
+  --color-success: rgb(var(--c-success));
+  --color-warning: rgb(var(--c-warning));
+  --color-info: rgb(var(--c-info));
+  --color-rating: rgb(var(--c-rating));
+  --color-on-accent: rgb(var(--c-on-accent));
+  --color-danger-solid: rgb(var(--c-danger-solid));
+  --color-success-solid: rgb(var(--c-success-solid));
+  --color-warning-solid: rgb(var(--c-warning-solid));
+  --color-info-solid: rgb(var(--c-info-solid));
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.25s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /*
- * 语义化配色（RGB 三元组，供 Tailwind 以 <alpha-value> 注入透明度）：
+ * 语义化配色（RGB 三元组，透明度由 Tailwind 的颜色修饰符处理）：
  * 深色主题沿用旧版 LibreTV 配色；浅色主题为对应的白底变体。
  */
 :root {
@@ -85,27 +124,30 @@ body {
   .card {
     @apply bg-card border border-line rounded-lg overflow-hidden transition-all duration-200;
   }
-  .btn {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-sm {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
     /* 统一焦点环：键盘用户可见，与 .input 同一规格 */
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40;
+    @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40;
   }
   .btn-primary {
-    @apply btn bg-accent text-on-accent hover:bg-accent-hover;
+    @apply bg-accent text-on-accent hover:bg-accent-hover;
   }
   .btn-ghost {
-    @apply btn bg-chip text-muted hover:bg-hover hover:text-content border border-line;
+    @apply bg-chip text-muted hover:bg-hover hover:text-content border border-line;
   }
   .input {
     @apply bg-chip border border-line rounded-md px-3 py-2 text-sm text-content placeholder:text-faint;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:border-accent;
+    @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:border-accent;
   }
   .tag {
     @apply inline-flex items-center text-xs px-1.5 py-0.5 rounded-full;
   }
   /* 小尺寸按钮：定义在 .btn-* 之后，确保尺寸覆盖生效（与 .btn-primary / .btn-ghost 组合使用） */
   .btn-sm {
-    @apply btn px-2.5 py-1 text-xs;
+    @apply px-2.5 py-1 text-xs;
   }
   /* 胶囊控件（筛选、分类标签）：统一内边距与圆角 */
   .chip {

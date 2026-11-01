@@ -269,7 +269,7 @@ export function SwitchSourceModal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="bg-surface-raised rounded-t-2xl sm:rounded-xl w-full max-w-3xl shadow-2xl p-5 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-slide-up outline-none"
+        className="bg-surface-raised rounded-t-2xl sm:rounded-xl w-full max-w-3xl shadow-2xl p-5 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-slide-up outline-hidden"
         role="dialog"
         aria-modal="true"
         aria-label={`换源：${currentTitle}`}
@@ -336,7 +336,7 @@ export function SwitchSourceModal({
                       aria-selected={active}
                       className={cn(
                         'shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/50',
                         active ? 'border-accent bg-accent/10 text-accent' : 'border-line bg-chip text-muted hover:bg-hover'
                       )}
                       onClick={() => setSelectedKey(key)}
@@ -361,10 +361,10 @@ export function SwitchSourceModal({
               </div>
               {/* 左右渐隐：提示这一栏还能横向滑 */}
               {tabEdges.left && (
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-surface-raised to-transparent" />
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-surface-raised to-transparent" />
               )}
               {tabEdges.right && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface-raised to-transparent" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-surface-raised to-transparent" />
               )}
             </div>
 

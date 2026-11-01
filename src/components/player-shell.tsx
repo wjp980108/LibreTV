@@ -1010,7 +1010,7 @@ export function PlayerShell({
       {!error && skipPrompt && (
         <button
           type="button"
-          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/70 px-4 py-2 text-sm text-white transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/70 px-4 py-2 text-sm text-white transition-colors hover:bg-black/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => {
             if (skipPrompt.type === 'ending') {
               finishBySkip(skipPrompt);
@@ -1049,7 +1049,7 @@ export function PlayerShell({
           {undoSkip && (
             <button
               type="button"
-              className="pointer-events-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="pointer-events-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium transition-colors hover:bg-white/30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
               onClick={undoLastSkip}
             >
               撤销

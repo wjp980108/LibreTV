@@ -5,7 +5,7 @@ name: release-standalone
 #
 # 为什么不需要按架构重新构建：运行期依赖全是纯 JS，唯一与架构绑定的是 next 的可选依赖
 # sharp（图片优化用）。本项目 images.unoptimized 且不使用 next/image，打包前剔除即可，
-# 于是同一份产物可以在任意架构的 Node 18+ 上运行。
+# 于是同一份产物可以在任意架构的 Node.js 24.22.2+ 上运行。
 #
 # 与 docker-publish 的关系：两者都监听 v* tag，互不依赖；镜像仍按架构在原生 runner 上构建。
 
@@ -37,7 +37,7 @@ jobs:
           standalone: true
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -166,7 +166,7 @@ jobs:
             echo
             echo "两个 registry 的镜像内容一致（同一组 digest），\`latest\` 也指向本版本。"
             echo
-            echo '### 免 Docker（下方附件，Node 18+）'
+            echo '### 免 Docker（下方附件，Node.js 24.22.2+）'
             echo
             echo '```bash'
             echo "sha256sum -c SHA256SUMS"

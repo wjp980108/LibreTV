@@ -1,5 +1,8 @@
 'use client';
 
+import { CloseOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Drawer, Grid, Flex, Layout, Typography, Badge, Card } from 'antd';
+
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import {
@@ -9,10 +12,8 @@ import {
   type SkipSegment,
   type SkipSegmentType,
 } from '@/lib/skip-marks';
-import { cn, formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/utils';
 import { useToast } from './toast';
-import { Drawer } from './drawer';
-import { Icon } from './icon';
 
 /**
  * 播放页的「跳过标记」抽屉。
@@ -69,6 +70,7 @@ export function SkipMarkPanel({
    */
   mobileMaxHeight?: number;
 }) {
+  const screens = Grid.useBreakpoint();
   const mark = useAppStore((s) => s.skipMarks[markKey]);
   const setSkipMark = useAppStore((s) => s.setSkipMark);
   const setSkipMarkEnabled = useAppStore((s) => s.setSkipMarkEnabled);
@@ -140,7 +142,10 @@ export function SkipMarkPanel({
     const snap = pauseAndSnap();
     if (!snap) return;
     if (snap.t <= 0) {
-      toast(type === 'opening' ? '请先播放到片头结束的位置' : '请先播放到片尾开始的位置', 'warning');
+      toast(
+        type === 'opening' ? '请先播放到片头结束的位置' : '请先播放到片尾开始的位置',
+        'warning',
+      );
       return;
     }
     if (type === 'opening') tryRecord({ type, start: 0, end: snap.t }, '片头结束', snap.duration);
@@ -166,7 +171,9 @@ export function SkipMarkPanel({
       toast('终点需晚于起点', 'warning');
       return;
     }
-    if (tryRecord({ type: 'middle', start: pendingStart, end: snap.t }, '中段片段', snap.duration)) {
+    if (
+      tryRecord({ type: 'middle', start: pendingStart, end: snap.t }, '中段片段', snap.duration)
+    ) {
       onPendingStart(null);
     }
   };
@@ -216,7 +223,11 @@ export function SkipMarkPanel({
     }
     c.pause();
     c.seek(to === 'start' ? seg.start : Math.max(0, seg.end - 1));
-    setClock({ current: to === 'start' ? seg.start : Math.max(0, seg.end - 1), duration: c.duration, paused: true });
+    setClock({
+      current: to === 'start' ? seg.start : Math.max(0, seg.end - 1),
+      duration: c.duration,
+      paused: true,
+    });
   };
 
   /** 当前播放位置落在哪个片段里：列表里高亮出来，方便核对边界 */
@@ -233,188 +244,370 @@ export function SkipMarkPanel({
       open={open}
       onClose={onClose}
       title="跳过标记"
-      width="max-w-sm lg:max-w-[20rem]"
-      modal={false}
-      mobileSheet
-      panelStyle={mobileMaxHeight ? { maxHeight: mobileMaxHeight } : undefined}
       footer={
-        <div>
-          <p className="mb-1.5 text-[11px] text-muted">记录（会先暂停在当前画面）</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
+        <Flex vertical>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, marginBottom: 6, fontSize: '11px' }}
+          >
+            记录（会先暂停在当前画面）
+          </Typography.Paragraph>
+          <Flex wrap align="center" gap={6}>
+            <Button
+              type="default"
+              size="small"
+              htmlType="button"
+
               title="把当前画面记为片头结束位置"
               onClick={() => recordAt('opening')}
             >
               记为片头结束
-            </button>
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
+            </Button>
+            <Button
+              type="default"
+              size="small"
+              htmlType="button"
+
               title="把当前画面记为片尾开始位置"
               onClick={() => recordAt('ending')}
             >
               记为片尾开始
-            </button>
+            </Button>
             {pendingStart === null ? (
-              <button type="button" className="btn-ghost btn-sm" onClick={markMiddleStart}>
+              <Button
+                type="default"
+                size="small"
+                htmlType="button"
+
+                onClick={markMiddleStart}
+              >
                 标记中段起点
-              </button>
+              </Button>
             ) : (
               <>
-                <button type="button" className="btn-ghost btn-sm" onClick={markMiddleEnd}>
+                <Button
+                  type="default"
+                  size="small"
+                  htmlType="button"
+
+                  onClick={markMiddleEnd}
+                >
                   标记中段终点（自 {formatTime(pendingStart)}）
-                </button>
-                <button type="button" className="btn-ghost btn-sm" title="放弃这个起点" onClick={() => onPendingStart(null)}>
+                </Button>
+                <Button
+                  type="default"
+                  size="small"
+                  htmlType="button"
+
+                  title="放弃这个起点"
+                  onClick={() => onPendingStart(null)}
+                >
                   取消
-                </button>
+                </Button>
               </>
             )}
-          </div>
-        </div>
+          </Flex>
+        </Flex>
       }
+      destroyOnHidden
+      closable={{ placement: 'end' }}
+      styles={{
+        body: { display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' },
+        section: { pointerEvents: 'auto' },
+      }}
+      mask={false}
+      autoFocus={false}
+      focusable={{ trap: false, focusTriggerAfterClose: false }}
+      placement={screens.lg ? 'right' : 'bottom'}
+      size={screens.lg ? 320 : mobileMaxHeight ? Math.min(mobileMaxHeight, 520) : '60vh'}
+      rootStyle={{ pointerEvents: 'none' }}
     >
-      {/* 当前进度 + 本剧开关：本剧作用域放最上，全局开关在底部只读展示，避免两个层级并排 */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs text-muted">
-            当前{' '}
-            <span className="font-mono text-content">{formatTime(clock.current)}</span>
-            <span className="text-muted"> / {formatTime(clock.duration)}</span>
-            {clock.paused && <span className="ml-1 text-muted">· 已暂停</span>}
-          </p>
-          <p className="mt-1 text-[11px] text-muted">
-            已标记 {segments.length} 段 · 按剧名对本剧各集与同名资源生效
-          </p>
-        </div>
-        <label
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 text-xs',
-            mark ? 'cursor-pointer text-muted hover:text-content' : 'cursor-not-allowed text-faint'
-          )}
-          title={mark ? '关闭后保留标记但完全不生效' : '还没有可开关的标记'}
-        >
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 accent-accent"
+      <Layout.Content
+        style={{
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          padding: 16,
+          flex: '1 1 0%',
+        }}
+      >
+        {/* 当前进度 + 本剧开关：本剧作用域放最上，全局开关在底部只读展示，避免两个层级并排 */}
+        <Flex align="flex-start" justify="space-between" gap={8}>
+          <Flex vertical>
+            <Typography.Paragraph
+              type="secondary"
+              style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+            >
+              当前{' '}
+              <Typography.Text
+                style={{
+                  fontFamily: 'var(--ant-font-family-code)',
+                }}
+              >
+                {formatTime(clock.current)}
+              </Typography.Text>
+              <Typography.Text type="secondary" style={{}}>
+                {' '}
+                / {formatTime(clock.duration)}
+              </Typography.Text>
+              {clock.paused && (
+                <Typography.Text type="secondary" style={{ marginInlineStart: 4 }}>
+                  · 已暂停
+                </Typography.Text>
+              )}
+            </Typography.Paragraph>
+            <Typography.Paragraph
+              type="secondary"
+              style={{ margin: 0, marginTop: 4, fontSize: '11px' }}
+            >
+              已标记 {segments.length} 段 · 按剧名对本剧各集与同名资源生效
+            </Typography.Paragraph>
+          </Flex>
+          <Checkbox
+            style={{
+              fontSize: 'var(--ant-font-size-sm)',
+              ...(mark
+                ? { cursor: 'pointer', color: 'var(--ant-color-text-secondary)' }
+                : { cursor: 'not-allowed', color: 'var(--ant-color-text-tertiary)' }),
+              flexShrink: 0,
+            }}
+
+            title={mark ? '关闭后保留标记但完全不生效' : '还没有可开关的标记'}
             checked={enabled}
             disabled={!mark}
             onChange={(e) => setSkipMarkEnabled(markKey, e.target.checked)}
-          />
-          本剧跳过
-        </label>
-      </div>
+          >
+            本剧跳过
+          </Checkbox>
+        </Flex>
 
-      {segments.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-line px-3 py-3 text-xs leading-relaxed text-muted">
-          尚未标记跳过片段。播放到目标位置后，用下方按钮记录，或使用快捷键：
-          Shift+I 片头结束 / Shift+O 片尾开始 / Shift+S · Shift+E 中段区间。
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {segments.map((seg, i) => {
-            const isCurrent = currentKey === seg;
-            // 中段可以有多条：按时间顺序编号（中段1 / 中段2…），否则两行 [中段] 分不清
-            const sameTypeCount = segments.filter((s) => s.type === seg.type).length;
-            const label =
-              seg.type === 'middle' && sameTypeCount > 1
-                ? `${SEGMENT_LABELS.middle}${segments.slice(0, i).filter((s) => s.type === 'middle').length + 1}`
-                : SEGMENT_LABELS[seg.type];
-            return (
-              <li
-                key={`${seg.type}:${seg.start}`}
-                className={cn(
-                  'relative rounded-lg border px-2.5 py-2 pr-8 transition-colors',
-                  isCurrent ? 'border-accent/60 bg-chip/60' : 'border-line/70'
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-xs">
-                    <span
-                      aria-hidden
-                      className="inline-block h-2 w-2 shrink-0 rounded-xs"
-                      style={{ backgroundColor: SEGMENT_COLORS[seg.type] }}
-                    />
-                    <span className="text-muted">[{label}]</span>
-                    <span className="font-mono text-muted">
-                      {formatTime(seg.start)} → {seg.type === 'ending' ? '结尾' : formatTime(seg.end)}
-                    </span>
-                  </span>
-                  {isCurrent && <span className="shrink-0 text-[10px] text-accent">当前</span>}
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    title="跳到片段起点，验证起点是否准确"
-                    onClick={() => jump(seg, 'start')}
+        {segments.length === 0 ? (
+          <Typography.Paragraph
+            type="secondary"
+            style={{
+              margin: 0,
+              marginTop: 12,
+              borderRadius: 'var(--ant-border-radius-lg)',
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: 'var(--ant-color-border-secondary)',
+              paddingInline: 12,
+              paddingBlock: 12,
+              fontSize: 'var(--ant-font-size-sm)',
+              lineHeight: 1.625,
+            }}
+          >
+            尚未标记跳过片段。播放到目标位置后，用下方按钮记录，或使用快捷键： Shift+I 片头结束 /
+            Shift+O 片尾开始 / Shift+S · Shift+E 中段区间。
+          </Typography.Paragraph>
+        ) : (
+          <Flex
+            style={{ margin: 0, padding: 0, listStyle: 'none', marginTop: 12 }}
+            vertical
+            gap={8}
+            component="ul"
+          >
+            {segments.map((seg, i) => {
+              const isCurrent = currentKey === seg;
+              // 中段可以有多条：按时间顺序编号（中段1 / 中段2…），否则两行 [中段] 分不清
+              const sameTypeCount = segments.filter((s) => s.type === seg.type).length;
+              const label =
+                seg.type === 'middle' && sameTypeCount > 1
+                  ? `${SEGMENT_LABELS.middle}${segments.slice(0, i).filter((s) => s.type === 'middle').length + 1}`
+                  : SEGMENT_LABELS[seg.type];
+              return (
+                <li key={`${seg.type}:${seg.start}`}>
+                  <Card
+                    size="small"
+                    style={{
+                      position: 'relative',
+                      ...(isCurrent
+                        ? {
+                            borderColor:
+                              'color-mix(in srgb, var(--ant-color-primary) 60%, transparent)',
+                            backgroundColor:
+                              'color-mix(in srgb, var(--ant-color-fill-tertiary) 60%, transparent)',
+                          }
+                        : {
+                            borderColor:
+                              'color-mix(in srgb, var(--ant-color-border-secondary) 70%, transparent)',
+                          }),
+                    }}
+                    styles={{
+                      body: {
+                        padding: 12,
+                        background: isCurrent ? 'var(--ant-color-primary-bg)' : undefined,
+                      },
+                    }}
                   >
-                    起点
-                  </button>
-                  {seg.type !== 'ending' && (
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      title="跳到终点前 1 秒，验证是否会切掉正片或漏掉一段"
-                      onClick={() => jump(seg, 'end')}
+                    <Flex align="center" justify="space-between" gap={8}>
+                      <Flex
+                        style={{ minWidth: 0, fontSize: 'var(--ant-font-size-sm)' }}
+                        align="center"
+                        gap={6}
+                        component="span"
+                      >
+                        <Badge color={SEGMENT_COLORS[seg.type]} />
+                        <Typography.Text type="secondary" style={{}}>
+                          [{label}]
+                        </Typography.Text>
+                        <Typography.Text
+                          type="secondary"
+                          style={{
+                            fontFamily: 'var(--ant-font-family-code)',
+                          }}
+                        >
+                          {formatTime(seg.start)} →{' '}
+                          {seg.type === 'ending' ? '结尾' : formatTime(seg.end)}
+                        </Typography.Text>
+                      </Flex>
+                      {isCurrent && (
+                        <Typography.Text
+                          style={{
+                            fontSize: '10px',
+                            color: 'var(--ant-color-primary)',
+                            flexShrink: 0,
+                          }}
+                        >
+                          当前
+                        </Typography.Text>
+                      )}
+                    </Flex>
+                    <Flex style={{ marginTop: 6 }} wrap align="center" gap={4}>
+                      <Button
+                        type="default"
+                        size="small"
+                        htmlType="button"
+
+                        title="跳到片段起点，验证起点是否准确"
+                        onClick={() => jump(seg, 'start')}
+                      >
+                        起点
+                      </Button>
+                      {seg.type !== 'ending' && (
+                        <Button
+                          type="default"
+                          size="small"
+                          htmlType="button"
+
+                          title="跳到终点前 1 秒，验证是否会切掉正片或漏掉一段"
+                          onClick={() => jump(seg, 'end')}
+                        >
+                          终点
+                        </Button>
+                      )}
+                      <Button
+                        type="default"
+                        size="small"
+                        htmlType="button"
+
+                        title="边界提前 1 秒"
+                        onClick={() => nudge(i, -1)}
+                      >
+                        -1s
+                      </Button>
+                      <Button
+                        type="default"
+                        size="small"
+                        htmlType="button"
+
+                        title="边界推后 1 秒"
+                        onClick={() => nudge(i, 1)}
+                      >
+                        +1s
+                      </Button>
+                    </Flex>
+                    {/* 删除放在右上角：条目多时「删」混在操作行里容易和 ±1s 混淆 */}
+                    <Button
+                      type="text"
+                      htmlType="button"
+                      style={{ position: 'absolute', right: 2, top: 2 }}
+                      title="删除（可在提示中撤销）"
+                      aria-label={`删除${label}片段`}
+                      onClick={() => remove(i)}
                     >
-                      终点
-                    </button>
-                  )}
-                  <button type="button" className="btn-ghost btn-sm" title="边界提前 1 秒" onClick={() => nudge(i, -1)}>
-                    -1s
-                  </button>
-                  <button type="button" className="btn-ghost btn-sm" title="边界推后 1 秒" onClick={() => nudge(i, 1)}>
-                    +1s
-                  </button>
-                </div>
-                {/* 删除放在右上角：条目多时「删」混在操作行里容易和 ±1s 混淆 */}
-                <button
-                  type="button"
-                  className="absolute right-0.5 top-0.5 rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-danger"
-                  title="删除（可在提示中撤销）"
-                  aria-label={`删除${label}片段`}
-                  onClick={() => remove(i)}
-                >
-                  <Icon name="close" className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                      <CloseOutlined style={{ fontSize: 14 }} aria-hidden />
+                    </Button>
+                  </Card>
+                </li>
+              );
+            })}
+          </Flex>
+        )}
 
-      {/* 全局开关：只读展示（层级与本剧开关不同，改起来去设置里更不容易误解） */}
-      <div className="mt-3 rounded-lg border border-line bg-surface px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted">全局 · 自动跳过片段</span>
-          <span className={cn('text-xs font-medium', autoSkipSegments ? 'text-accent' : 'text-muted')}>
-            {autoSkipSegments ? '已开启' : '已关闭'}
-          </span>
-        </div>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
-          {autoSkipSegments
-            ? '命中片头/中段自动跳段，片尾结束本集（是否连播看「自动连播」）。'
-            : '命中片段只显示按钮，不自动跳。'}
-          影响所有剧，在「设置 → 偏好设置」修改。
-        </p>
-      </div>
+        {/* 全局开关：只读展示（层级与本剧开关不同，改起来去设置里更不容易误解） */}
+        <Card
+          size="small"
+          style={{
+            marginTop: 12,
+            borderColor: 'var(--ant-color-border-secondary)',
+            backgroundColor: 'var(--ant-color-bg-container)',
+          }}
+          styles={{ body: { padding: 0, paddingInline: 12, paddingBlock: 10 } }}
+        >
+          <Flex vertical>
+            <Flex align="center" justify="space-between" gap={8}>
+              <Typography.Text
+                type="secondary"
+                style={{
+                  fontSize: 'var(--ant-font-size-sm)',
+                }}
+              >
+                全局 · 自动跳过片段
+              </Typography.Text>
+              <Typography.Text
+                style={{
+                  fontSize: 'var(--ant-font-size-sm)',
+                  fontWeight: 500,
+                  ...(autoSkipSegments
+                    ? { color: 'var(--ant-color-primary)' }
+                    : { color: 'var(--ant-color-text-secondary)' }),
+                }}
+              >
+                {autoSkipSegments ? '已开启' : '已关闭'}
+              </Typography.Text>
+            </Flex>
+            <Typography.Paragraph
+              type="secondary"
+              style={{ margin: 0, marginTop: 4, fontSize: '11px', lineHeight: 1.625 }}
+            >
+              {autoSkipSegments
+                ? '命中片头/中段自动跳段，片尾结束本集（是否连播看「自动连播」）。'
+                : '命中片段只显示按钮，不自动跳。'}
+              影响所有剧，在「设置 → 偏好设置」修改。
+            </Typography.Paragraph>
+          </Flex>
+        </Card>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
-        <span>进度条色带：</span>
-        {SEGMENT_TYPES.map((t) => (
-          <span key={t} className="inline-flex items-center gap-1">
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 rounded-xs"
-              style={{ backgroundColor: SEGMENT_COLORS[t] }}
-            />
-            {SEGMENT_LABELS[t]}
-          </span>
-        ))}
-        <span className="w-full">跳过时播放器顶部会出现「撤销」，可回退刚跳过的那一次。</span>
-      </div>
+        <Flex
+          wrap
+          align="center"
+          style={{
+            marginTop: 12,
+            fontSize: '11px',
+            color: 'var(--ant-color-text-secondary)',
+            columnGap: 12,
+            rowGap: 4,
+          }}
+        >
+          <Typography.Text>进度条色带：</Typography.Text>
+          {SEGMENT_TYPES.map((t) => (
+            <Flex
+              key={t}
+              align="center"
+              gap={4}
+              component="span"
+              style={{ display: 'inline-flex' }}
+            >
+              <Badge color={SEGMENT_COLORS[t]} />
+              {SEGMENT_LABELS[t]}
+            </Flex>
+          ))}
+          <Typography.Text style={{ width: '100%' }}>
+            跳过时播放器顶部会出现「撤销」，可回退刚跳过的那一次。
+          </Typography.Text>
+        </Flex>
+      </Layout.Content>
     </Drawer>
   );
 }

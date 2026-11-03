@@ -1,15 +1,15 @@
 'use client';
 
+import { Button, Flex, Image, theme, Alert, Tag } from 'antd';
+
 import { useEffect, useRef, useState } from 'react';
 import Artplayer from 'artplayer';
+import { playerIcons, previousEpisodeIcon, nextEpisodeIcon } from '@/lib/player-icons';
 import Hls, { type HlsConfig } from 'hls.js';
 
 import { PlaybackRecovery, describeHlsError } from '@/lib/playback-recovery';
 import { createHlsLoader } from '@/lib/hls-loader';
-import {
-  getVideoPrefetcher,
-  getNextEpisodePrefetcher,
-} from '@/lib/video-prefetcher';
+import { getVideoPrefetcher, getNextEpisodePrefetcher } from '@/lib/video-prefetcher';
 import { loadCacheSettings } from '@/lib/video-cache';
 import { formatTime } from '@/lib/utils';
 import { prefersTouchPointer } from '@/lib/touch-pointer';
@@ -124,9 +124,14 @@ export function PlayerShell({
   hasPrevEpisode,
   hasNextEpisode,
 }: PlayerShellProps) {
+  const { token } = theme.useToken();
+
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const artRef = useRef<any>(null);
+  useEffect(() => {
+    if (artRef.current) artRef.current.theme = token.colorPrimary;
+  }, [token.colorPrimary]);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
@@ -136,18 +141,54 @@ export function PlayerShell({
 
   // 始终持有最新 props/回调，避免重建播放器
   const propsRef = useRef({
-    url, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
-    pendingStart, onPendingStart, onPlayerApi, onRecordSegment,
-    episodeKey, nextUrl, nextEpisodeKey,
-    getRestorePosition, onTimeUpdate, onEnded, onPause, onQuality, onRequestSwitchSource,
-    onPrevEpisode, onNextEpisode, hasPrevEpisode, hasNextEpisode,
+    url,
+    title,
+    adFilter,
+    autoplayNext,
+    skipMark,
+    autoSkipSegments,
+    pendingStart,
+    onPendingStart,
+    onPlayerApi,
+    onRecordSegment,
+    episodeKey,
+    nextUrl,
+    nextEpisodeKey,
+    getRestorePosition,
+    onTimeUpdate,
+    onEnded,
+    onPause,
+    onQuality,
+    onRequestSwitchSource,
+    onPrevEpisode,
+    onNextEpisode,
+    hasPrevEpisode,
+    hasNextEpisode,
   });
   propsRef.current = {
-    url, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
-    pendingStart, onPendingStart, onPlayerApi, onRecordSegment,
-    episodeKey, nextUrl, nextEpisodeKey,
-    getRestorePosition, onTimeUpdate, onEnded, onPause, onQuality, onRequestSwitchSource,
-    onPrevEpisode, onNextEpisode, hasPrevEpisode, hasNextEpisode,
+    url,
+    title,
+    adFilter,
+    autoplayNext,
+    skipMark,
+    autoSkipSegments,
+    pendingStart,
+    onPendingStart,
+    onPlayerApi,
+    onRecordSegment,
+    episodeKey,
+    nextUrl,
+    nextEpisodeKey,
+    getRestorePosition,
+    onTimeUpdate,
+    onEnded,
+    onPause,
+    onQuality,
+    onRequestSwitchSource,
+    onPrevEpisode,
+    onNextEpisode,
+    hasPrevEpisode,
+    hasNextEpisode,
   };
 
   /** 上报实测画质：多次上报取大值由调用方决定，这里只管把拿到的高度传出去 */
@@ -384,7 +425,9 @@ export function PlayerShell({
     };
 
     const restoreEvents = ['loadedmetadata', 'durationchange', 'canplay'] as const;
-    const onRestoreEvent = () => { void restoreAndStart(); };
+    const onRestoreEvent = () => {
+      void restoreAndStart();
+    };
     restoreEvents.forEach((event) => video.addEventListener(event, onRestoreEvent));
     restoreCleanupRef.current = () => {
       restoreEvents.forEach((event) => video.removeEventListener(event, onRestoreEvent));
@@ -530,7 +573,8 @@ export function PlayerShell({
       playsInline: true,
       airplay: true,
       hotkey: false,
-      theme: '#2563eb',
+      theme: token.colorPrimary,
+      icons: playerIcons,
       lang: navigator.language.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en',
       moreVideoAttr: { crossOrigin: 'anonymous', playsInline: true },
       // 上/下集放在播放键右侧：换集是看剧最高频的动作，不该让用户滚回页面下方找按钮
@@ -539,7 +583,7 @@ export function PlayerShell({
           name: 'prev-episode',
           index: 11,
           position: 'left',
-          html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>',
+          html: previousEpisodeIcon,
           tooltip: '上一集 (Alt+←)',
           click: () => {
             if (propsRef.current.hasPrevEpisode) propsRef.current.onPrevEpisode?.();
@@ -549,7 +593,7 @@ export function PlayerShell({
           name: 'next-episode',
           index: 12,
           position: 'left',
-          html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',
+          html: nextEpisodeIcon,
           tooltip: '下一集 (Alt+→)',
           click: () => {
             if (propsRef.current.hasNextEpisode) propsRef.current.onNextEpisode?.();
@@ -641,7 +685,9 @@ export function PlayerShell({
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (art as any).title = propsRef.current.title;
-      } catch { /* 忽略 */ }
+      } catch {
+        /* 忽略 */
+      }
     });
 
     art.on('video:playing', () => {
@@ -696,7 +742,7 @@ export function PlayerShell({
         findCrossedEnding(segments, previous, current)
       ) {
         const ending = segments.find(
-          (s) => s.type === 'ending' && previous < s.start && current >= s.start
+          (s) => s.type === 'ending' && previous < s.start && current >= s.start,
         );
         finishBySkip(ending);
         return;
@@ -722,8 +768,7 @@ export function PlayerShell({
       }
 
       // 按钮提示：当前落在某个未处理片段内（结尾片段显示「跳过片尾」）
-      const prompt =
-        active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
+      const prompt = active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
       updateSkipPrompt(prompt);
     });
     art.on('video:seeked', () => {
@@ -734,8 +779,7 @@ export function PlayerShell({
       lastSampleRef.current = current;
       const segments = resolveSegments(propsRef.current.skipMark, art.duration);
       const active = findActiveSegment(segments, current);
-      const prompt =
-        active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
+      const prompt = active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
       updateSkipPrompt(prompt);
     });
     art.on('video:pause', () => {
@@ -765,33 +809,61 @@ export function PlayerShell({
     const shortcuts = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       // 输入框或按钮获得焦点时不劫持按键：否则空格会吞掉按钮的默认激活
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('button')) return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('button'))
+        return;
       const current = artRef.current;
       if (!current) return;
-      if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); return; } // 由父层处理集数切换
-      if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); return; }
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        return;
+      } // 由父层处理集数切换
+      if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        return;
+      }
       switch (e.key) {
         case 'ArrowLeft':
-          if (current.currentTime > 5) { current.currentTime -= 5; showHint('快退 5s'); e.preventDefault(); }
+          if (current.currentTime > 5) {
+            current.currentTime -= 5;
+            showHint('快退 5s');
+            e.preventDefault();
+          }
           break;
         case 'ArrowRight':
-          if (current.duration - current.currentTime > 5) { current.currentTime += 5; showHint('快进 5s'); e.preventDefault(); }
+          if (current.duration - current.currentTime > 5) {
+            current.currentTime += 5;
+            showHint('快进 5s');
+            e.preventDefault();
+          }
           break;
         case 'ArrowUp':
-          if (current.volume < 1) { current.volume = Math.min(1, current.volume + 0.1); showHint(`音量 ${Math.round(current.volume * 100)}%`); e.preventDefault(); }
+          if (current.volume < 1) {
+            current.volume = Math.min(1, current.volume + 0.1);
+            showHint(`音量 ${Math.round(current.volume * 100)}%`);
+            e.preventDefault();
+          }
           break;
         case 'ArrowDown':
-          if (current.volume > 0) { current.volume = Math.max(0, current.volume - 0.1); showHint(`音量 ${Math.round(current.volume * 100)}%`); e.preventDefault(); }
+          if (current.volume > 0) {
+            current.volume = Math.max(0, current.volume - 0.1);
+            showHint(`音量 ${Math.round(current.volume * 100)}%`);
+            e.preventDefault();
+          }
           break;
         case ' ':
-          current.toggle(); showHint('播放/暂停'); e.preventDefault();
+          current.toggle();
+          showHint('播放/暂停');
+          e.preventDefault();
           break;
-        case 'f': case 'F':
-          current.fullscreen = !current.fullscreen; e.preventDefault();
+        case 'f':
+        case 'F':
+          current.fullscreen = !current.fullscreen;
+          e.preventDefault();
           break;
         // 标记类快捷键一律要求 Shift：这几键会直接写盘并影响整部剧，
         // 单键太容易误触（误记片头 = 之后每集都被跳过一大段）
-        case 'i': case 'I':
+        case 'i':
+        case 'I':
           if (!e.shiftKey) break;
           propsRef.current.onRecordSegment?.({
             type: 'opening',
@@ -800,7 +872,8 @@ export function PlayerShell({
           });
           e.preventDefault();
           break;
-        case 'o': case 'O':
+        case 'o':
+        case 'O':
           if (!e.shiftKey) break;
           propsRef.current.onRecordSegment?.({
             type: 'ending',
@@ -809,13 +882,15 @@ export function PlayerShell({
           });
           e.preventDefault();
           break;
-        case 's': case 'S':
+        case 's':
+        case 'S':
           if (!e.shiftKey) break;
           propsRef.current.onPendingStart(round1(current.currentTime));
           showHint('片段起点已记录，播放到终点后按 Shift+E');
           e.preventDefault();
           break;
-        case 'e': case 'E': {
+        case 'e':
+        case 'E': {
           if (!e.shiftKey) break;
           const start = propsRef.current.pendingStart;
           if (start === null) {
@@ -878,7 +953,10 @@ export function PlayerShell({
       }, 500);
     };
     const onTouchEnd = () => {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       if (isLongPress) {
         art.video.playbackRate = originalRate;
         isLongPress = false;
@@ -911,7 +989,9 @@ export function PlayerShell({
       if (!endedRef.current) {
         try {
           propsRef.current.onPause?.(art.currentTime, art.duration);
-        } catch { /* 忽略 */ }
+        } catch {
+          /* 忽略 */
+        }
       }
       document.removeEventListener('keydown', shortcuts);
       document.removeEventListener('visibilitychange', saveOnHide);
@@ -948,11 +1028,17 @@ export function PlayerShell({
     if (!controls) return;
     controls.update({
       name: 'prev-episode',
-      style: { opacity: hasPrevEpisode ? '1' : '0.4', pointerEvents: hasPrevEpisode ? 'auto' : 'none' },
+      style: {
+        opacity: hasPrevEpisode ? '1' : '0.4',
+        pointerEvents: hasPrevEpisode ? 'auto' : 'none',
+      },
     });
     controls.update({
       name: 'next-episode',
-      style: { opacity: hasNextEpisode ? '1' : '0.4', pointerEvents: hasNextEpisode ? 'auto' : 'none' },
+      style: {
+        opacity: hasNextEpisode ? '1' : '0.4',
+        pointerEvents: hasNextEpisode ? 'auto' : 'none',
+      },
     });
   }, [hasPrevEpisode, hasNextEpisode, url]);
 
@@ -967,8 +1053,7 @@ export function PlayerShell({
     lastSampleRef.current = Number.isFinite(current) ? current : 0;
     const segments = resolveSegments(skipMark, art.duration);
     const active = findActiveSegment(segments, current);
-    const prompt =
-      active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
+    const prompt = active && !handledSegmentsRef.current.has(segmentKey(active)) ? active : null;
     updateSkipPrompt(prompt);
     renderSkipMarks();
   }, [skipMark]);
@@ -977,7 +1062,10 @@ export function PlayerShell({
   const firstUrlRef = useRef(true);
   useEffect(() => {
     // 挂载时的首次由创建 effect 的 customType 触发，跳过避免重复加载
-    if (firstUrlRef.current) { firstUrlRef.current = false; return; }
+    if (firstUrlRef.current) {
+      firstUrlRef.current = false;
+      return;
+    }
     loadEpisode(url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
@@ -985,7 +1073,10 @@ export function PlayerShell({
   // —— 广告过滤开关变化：重建 HLS loader（无需重建整个播放器） ——
   const firstAdFilterRef = useRef(true);
   useEffect(() => {
-    if (firstAdFilterRef.current) { firstAdFilterRef.current = false; return; }
+    if (firstAdFilterRef.current) {
+      firstAdFilterRef.current = false;
+      return;
+    }
     if (artRef.current && hlsRef.current) {
       // 用当前实际媒体地址：代理回退生效时切广告过滤不应跳回直连形式
       loadEpisode(currentMediaUrlRef.current || propsRef.current.url);
@@ -994,23 +1085,35 @@ export function PlayerShell({
   }, [adFilter]);
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={containerRef} className="w-full h-full" style={{ WebkitTouchCallout: 'none' }} />
+    <Flex vertical style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height: '100%', WebkitTouchCallout: 'none' }}
+      />
       {showPoster && !error && (
-        <div
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
-            backgroundImage: 'url(/player-poster.png)',
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
+        <Image
+          preview={false}
+          src="/player-poster.png"
+          alt=""
+          styles={{
+            root: {
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              background: '#000',
+              pointerEvents: 'none',
+            },
+            image: { width: '100%', height: '100%', objectFit: 'contain' },
           }}
         />
       )}
       {!error && skipPrompt && (
-        <button
-          type="button"
-          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/70 px-4 py-2 text-sm text-white transition-colors hover:bg-black/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+        <Button
+          type="primary"
+          shape="round"
+          htmlType="button"
+          style={{ position: 'absolute', bottom: 64, left: '50%', translate: '-50% 0', zIndex: 10 }}
           onClick={() => {
             if (skipPrompt.type === 'ending') {
               finishBySkip(skipPrompt);
@@ -1030,38 +1133,75 @@ export function PlayerShell({
             : skipPrompt.type === 'opening'
               ? '跳过片头'
               : '跳过中段'}
-        </button>
+        </Button>
       )}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80">
-          <p className="text-danger text-sm">{error}</p>
-          <button className="btn-ghost text-xs" onClick={() => location.reload()}>
-            重新加载
-          </button>
-        </div>
+        <Flex
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'color-mix(in srgb, #000 80%, transparent)',
+          }}
+          vertical
+          align="center"
+          justify="center"
+          gap={8}
+        >
+          <Alert
+            type="error"
+            showIcon
+            title="播放失败"
+            description={error}
+            action={
+              <Button type="default" onClick={() => location.reload()}>
+                重新加载
+              </Button>
+            }
+            style={{
+              margin: 16,
+              maxWidth: 'calc(100% - 32px)',
+              maxHeight: '100%',
+              overflowY: 'auto',
+            }}
+          />
+        </Flex>
       )}
       {(hint || undoSkip) && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-sm text-white animate-fade-in">
-          {/* 撤销窗口比普通提示长：hint 已淡出时仍要让用户知道刚才跳过了什么 */}
-          <span className="pointer-events-none">
-            {hint || (undoSkip ? `已跳过${SEGMENT_LABELS[undoSkip.segment.type]}` : '')}
-          </span>
-          {undoSkip && (
-            <button
-              type="button"
-              className="pointer-events-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium transition-colors hover:bg-white/30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
-              onClick={undoLastSkip}
-            >
-              撤销
-            </button>
-          )}
-        </div>
+        <Alert
+          type="info"
+          showIcon
+          title={<>{hint || (undoSkip ? `已跳过${SEGMENT_LABELS[undoSkip.segment.type]}` : '')}</>}
+          action={
+            undoSkip ? (
+              <Button
+                style={{ pointerEvents: 'auto', flexShrink: 0 }}
+                type="text"
+                htmlType="button"
+
+                onClick={undoLastSkip}
+              >
+                撤销
+              </Button>
+            ) : undefined
+          }
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            translate: '-50% 0',
+            zIndex: 10,
+            maxWidth: 'calc(100% - 32px)',
+          }}
+        />
       )}
       {autoplayNext && !error && (
-        <div className="absolute bottom-16 right-3 text-[10px] text-muted bg-black/50 px-2 py-0.5 rounded pointer-events-none">
+        <Tag
+          color="gold"
+          style={{ position: 'absolute', bottom: 64, right: 12, margin: 0, pointerEvents: 'none' }}
+        >
           自动连播已开启
-        </div>
+        </Tag>
       )}
-    </div>
+    </Flex>
   );
 }

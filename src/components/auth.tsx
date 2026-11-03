@@ -1,6 +1,16 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Input, Button, type InputRef, Modal, Form, Alert, Typography } from 'antd';
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, onUnauthorized, STATUS_QUERY_KEY } from '@/lib/client-api';
 import { applyEnvPresets } from '@/lib/subscription-sync';
@@ -76,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setVerified(false);
         setModalOpen(true);
       }),
-    []
+    [],
   );
 
   const openLogin = useCallback(() => setModalOpen(true), []);
@@ -140,20 +150,7 @@ function LoginModal({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
+  const inputRef = useRef<InputRef>(null);
   const submit = async () => {
     if (!password.trim() || loading) return;
     setLoading(true);
@@ -170,55 +167,62 @@ function LoginModal({
       setLoading(false);
     }
   };
-
   return (
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <Modal
+      open
+      centered
+      width={400}
+      zIndex={1400}
+      title={setupRequired ? '需要配置密码' : '访问验证'}
+      footer={null}
+      onCancel={onClose}
+      destroyOnHidden
+      afterOpenChange={(open) => {
+        if (open) inputRef.current?.focus();
       }}
     >
-      <div
-        className="bg-surface-raised rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={setupRequired ? '需要配置密码' : '访问验证'}
-      >
-        {setupRequired ? (
-          <>
-            <h2 className="text-lg font-semibold text-content mb-3">需要配置密码</h2>
-            <p className="text-sm text-muted leading-relaxed">
-              为确保安全，必须设置 <code className="text-accent">PASSWORD</code> 环境变量才能使用本服务。
-              请联系管理员在部署配置中添加该变量后重启服务。
-            </p>
-          </>
-        ) : (
-          <>
-            <h2 className="text-lg font-semibold text-content mb-1">访问验证</h2>
-            <p className="text-sm text-muted mb-4">请输入密码继续访问</p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit();
-              }}
-            >
-              <input
-                ref={inputRef}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input w-full"
-                placeholder="密码"
-                autoComplete="current-password"
-              />
-              {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-              <button type="submit" className="btn-primary w-full mt-4" disabled={loading || !password.trim()}>
-                {loading ? '验证中...' : '进入'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+      {setupRequired ? (
+        <Alert
+          type="warning"
+          showIcon
+          title="请先配置访问密码"
+          description={
+            <>
+              请联系管理员设置服务的 <Typography.Text code>PASSWORD</Typography.Text>{' '}
+              环境变量并重启。
+            </>
+          }
+        />
+      ) : (
+        <Form layout="vertical" onFinish={() => void submit()} requiredMark={false}>
+          <Typography.Paragraph style={{ margin: 0 }} type="secondary">
+            请输入密码继续访问你的私人影院。
+          </Typography.Paragraph>
+          <Form.Item
+            label="密码"
+            validateStatus={error ? 'error' : undefined}
+            help={error || undefined}
+          >
+            <Input.Password
+              ref={inputRef}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              placeholder="输入访问密码"
+              aria-label="访问密码"
+            />
+          </Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            loading={loading}
+            disabled={!password.trim()}
+          >
+            进入影院
+          </Button>
+        </Form>
+      )}
+    </Modal>
   );
 }

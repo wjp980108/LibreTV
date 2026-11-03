@@ -1,0 +1,29 @@
+diff --git a/es/ref.js b/es/ref.js
+index 682359e92678830b51272da147da8adef9909596..0d9466bfda5e05ad2eb85b3f89ae0e523de5a520 100644
+--- a/es/ref.js
++++ b/es/ref.js
+@@ -70,7 +70,8 @@ export const getNodeRef = node => {
+ 
+     // Source from:
+     // https://github.com/mui/material-ui/blob/master/packages/mui-utils/src/getReactNodeRef/getReactNodeRef.ts
+-    return ele.props.propertyIsEnumerable('ref') ? ele.props.ref : ele.ref;
++    // React 19 warns when element.ref is read, even when no ref was provided.
++    return ReactMajorVersion >= 19 ? ele.props.ref : ele.ref;
+   }
+   return null;
+ };
+\ No newline at end of file
+diff --git a/lib/ref.js b/lib/ref.js
+index 4bf389fd5d4d4264cf8aeb5b17c50a1fe5fc9cd1..62443e0346a231325e36109ea6cc57c2b70d19ec 100644
+--- a/lib/ref.js
++++ b/lib/ref.js
+@@ -82,7 +82,8 @@ const getNodeRef = node => {
+ 
+     // Source from:
+     // https://github.com/mui/material-ui/blob/master/packages/mui-utils/src/getReactNodeRef/getReactNodeRef.ts
+-    return ele.props.propertyIsEnumerable('ref') ? ele.props.ref : ele.ref;
++    // React 19 warns when element.ref is read, even when no ref was provided.
++    return ReactMajorVersion >= 19 ? ele.props.ref : ele.ref;
+   }
+   return null;
+ };

@@ -1,9 +1,11 @@
 'use client';
 
+import { Button, Spin, Flex, Badge, Image, theme, Alert, Tag } from 'antd';
+
 import { useEffect, useRef, useState } from 'react';
 import Artplayer from 'artplayer';
+import { playerIcons, previousChannelIcon, nextChannelIcon } from '@/lib/player-icons';
 import Hls, { type HlsConfig } from 'hls.js';
-import { Spinner } from './states';
 import { prefersTouchPointer } from '@/lib/touch-pointer';
 import { ART_DEFAULT_CONTROL_HIDE_MS, TOUCH_CONTROL_HIDE_MS } from '@/lib/control-hide';
 
@@ -51,9 +53,14 @@ interface LivePlayerProps {
 }
 
 export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePlayerProps) {
+  const { token } = theme.useToken();
+
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const artRef = useRef<any>(null);
+  useEffect(() => {
+    if (artRef.current) artRef.current.theme = token.colorPrimary;
+  }, [token.colorPrimary]);
   const hlsRef = useRef<Hls | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mpegtsRef = useRef<any>(null);
@@ -102,12 +109,24 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       hlsRef.current?.destroy();
       hlsRef.current = null;
       if (mpegtsRef.current) {
-        try { mpegtsRef.current.pause(); } catch { /* 忽略 */ }
-        try { mpegtsRef.current.destroy(); } catch { /* 忽略 */ }
+        try {
+          mpegtsRef.current.pause();
+        } catch {
+          /* 忽略 */
+        }
+        try {
+          mpegtsRef.current.destroy();
+        } catch {
+          /* 忽略 */
+        }
         mpegtsRef.current = null;
       }
       if (nativeCleanup) {
-        try { nativeCleanup(); } catch { /* 忽略 */ }
+        try {
+          nativeCleanup();
+        } catch {
+          /* 忽略 */
+        }
         nativeCleanup = null;
       }
     };
@@ -121,7 +140,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       video: HTMLVideoElement,
       mediaUrl: string,
       allowProxyFallback: boolean,
-      failMessage?: string
+      failMessage?: string,
     ) => {
       cleanupEngines();
       const onError = () => {
@@ -203,7 +222,12 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
           }
           // HLS 直连与代理均失败：可能是"无 .m3u8 后缀但内容是 MP4"的源，回退原生播放
           showHint('HLS 解析失败，尝试原生播放...');
-          setupNative(video, url, true, `直播流加载失败${codeHint}，可能该频道已失效，请尝试其他频道`);
+          setupNative(
+            video,
+            url,
+            true,
+            `直播流加载失败${codeHint}，可能该频道已失效，请尝试其他频道`,
+          );
           return;
         }
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
@@ -221,7 +245,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
     const setupFlv = async (
       video: HTMLVideoElement,
       mediaUrl: string,
-      allowProxyFallback: boolean
+      allowProxyFallback: boolean,
     ) => {
       cleanupEngines();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,7 +273,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
           stashInitialSize: 128,
           liveBufferLatencyChasing: true,
           lazyLoad: false,
-        }
+        },
       );
       mpegtsRef.current = player;
       player.attachMediaElement(video);
@@ -270,14 +294,12 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
     // 上一台/下一台：注册到播放器控制条（普通态与全屏均可见），未传不显示
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const controls: any[] = [];
-    const channelBtnSvg = (path: string) =>
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="${path}"/></svg>`;
     if (onPrevChannel) {
       controls.push({
         name: 'prev-channel',
         position: 'left',
         index: 0,
-        html: channelBtnSvg('M11 19l-7-7 7-7m8 14l-7-7 7-7'),
+        html: previousChannelIcon,
         tooltip: '上一台',
         click: () => onPrevChannel(),
       });
@@ -287,7 +309,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
         name: 'next-channel',
         position: 'left',
         index: 1,
-        html: channelBtnSvg('M13 5l7 7-7 7M5 5l7 7-7 7'),
+        html: nextChannelIcon,
         tooltip: '下一台',
         click: () => onNextChannel(),
       });
@@ -318,7 +340,8 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       backdrop: true,
       playsInline: true,
       airplay: true,
-      theme: '#2563eb',
+      theme: token.colorPrimary,
+      icons: playerIcons,
       controls,
       lang: navigator.language.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en',
       moreVideoAttr: { playsInline: true },
@@ -339,7 +362,9 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (art as any).title = title;
-      } catch { /* 忽略 */ }
+      } catch {
+        /* 忽略 */
+      }
     });
     art.on('video:playing', () => {
       playbackStarted = true;
@@ -356,7 +381,9 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       try {
         const progress = art.controls?.progress as HTMLElement | undefined;
         if (progress) progress.style.display = 'none';
-      } catch { /* 忽略 */ }
+      } catch {
+        /* 忽略 */
+      }
     });
 
     // 15s 内未起播则提示
@@ -381,59 +408,121 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
   }, [url, retryNonce, onPrevChannel, onNextChannel]);
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={containerRef} className="w-full h-full" />
+    <Flex vertical style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {/* 起播前的品牌占位图 */}
       {showPoster && !error && (
-        <div
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
-            backgroundImage: 'url(/player-poster.png)',
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
+        <Image
+          preview={false}
+          src="/player-poster.png"
+          alt=""
+          styles={{
+            root: {
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              background: '#000',
+              pointerEvents: 'none',
+            },
+            image: { width: '100%', height: '100%', objectFit: 'contain' },
           }}
         />
       )}
       {/* LIVE 呼吸标识 */}
       {!error && (
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/60 px-2 py-1 rounded-full pointer-events-none">
-          <span className="live-dot" />
-          <span className="text-[10px] font-semibold text-white tracking-wider">LIVE</span>
-        </div>
+        <Tag
+          color="error"
+          icon={<Badge status="processing" color="red" />}
+          style={{ position: 'absolute', top: 12, right: 12, margin: 0, pointerEvents: 'none' }}
+        >
+          LIVE
+        </Tag>
       )}
       {/* 换台 OSD：频道名（全屏内同样可见） */}
       {osdTitle && !error && (
-        <div className="absolute top-3 left-3 flex items-center max-w-[70%] bg-black/60 px-3 py-1.5 rounded-full pointer-events-none animate-fade-in">
-          <span className="text-sm font-medium text-white truncate">{osdTitle}</span>
-        </div>
+        <Alert
+          type="info"
+          showIcon
+          title={osdTitle}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            maxWidth: '70%',
+            pointerEvents: 'none',
+          }}
+        />
       )}
       {loading && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
-          <Spinner size="lg" tone="onDark" />
-        </div>
+        <Flex
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'color-mix(in srgb, #000 40%, transparent)',
+            pointerEvents: 'none',
+          }}
+          align="center"
+          justify="center"
+        >
+          <Spin size="large" />
+        </Flex>
       )}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80">
-          <p className="text-danger text-sm px-4 text-center">{error}</p>
-          <button
-            className="btn-ghost text-xs !bg-white/10 !text-white !border-white/20"
-            onClick={() => {
-              // 重建播放器实例即可，无需整页刷新
-              setError('');
-              setHint('');
-              setRetryNonce((n) => n + 1);
+        <Flex
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'color-mix(in srgb, #000 80%, transparent)',
+          }}
+          vertical
+          align="center"
+          justify="center"
+          gap={8}
+        >
+          <Alert
+            type="error"
+            showIcon
+            title="播放失败"
+            description={error}
+            action={
+              <Button
+                type="default"
+
+                onClick={() => {
+                  // 重建播放器实例即可，无需整页刷新
+                  setError('');
+                  setHint('');
+                  setRetryNonce((n) => n + 1);
+                }}
+              >
+                重新加载
+              </Button>
+            }
+            style={{
+              margin: 16,
+              maxWidth: 'calc(100% - 32px)',
+              maxHeight: '100%',
+              overflowY: 'auto',
             }}
-          >
-            重新加载
-          </button>
-        </div>
+          />
+        </Flex>
       )}
       {hint && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-3 py-1.5 rounded-full pointer-events-none animate-fade-in">
-          {hint}
-        </div>
+        <Alert
+          type="info"
+          showIcon
+          title={hint}
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            translate: '-50% 0',
+            maxWidth: 'calc(100% - 32px)',
+            pointerEvents: 'none',
+          }}
+        />
       )}
-    </div>
+    </Flex>
   );
 }

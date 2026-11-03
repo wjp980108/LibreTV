@@ -1,5 +1,22 @@
 'use client';
 
+import { CloseOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+
+import {
+  Button,
+  Input,
+  Select,
+  Segmented,
+  Empty,
+  Space,
+  Typography,
+  Flex,
+  Tag,
+  Tooltip,
+  Badge,
+  Card,
+} from 'antd';
+
 import {
   memo,
   useCallback,
@@ -11,9 +28,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { cn } from '@/lib/utils';
 import { SmartImage } from './smart-image';
-import { Dropdown } from './dropdown';
 import { useAppStore } from '@/lib/store';
 import {
   isSlowSource,
@@ -26,7 +41,6 @@ import {
 } from '@/lib/live-channel-filter';
 import { useLiveProbe, type ProbeResult } from './use-live-probe';
 import type { LiveChannel } from '@/lib/types';
-import { EmptyState } from './states';
 
 /**
  * 直播频道侧栏：全部/收藏/最近三个视图 + 分组横向标签条 + 关键字搜索 + 排序。
@@ -47,7 +61,7 @@ function formatProbeProgress(p: { done: number; total: number; startedAt: number
   const remaining = p.total - p.done;
   if (remaining <= 0) return base;
   if (p.done <= 0) return `${base} · 估算中…`;
-  const remainMin = Math.ceil(((Date.now() - p.startedAt) / p.done) * remaining / 60000);
+  const remainMin = Math.ceil((((Date.now() - p.startedAt) / p.done) * remaining) / 60000);
   return `${base} · 预计剩余 ${Math.max(1, remainMin)} 分钟`;
 }
 
@@ -152,7 +166,13 @@ function useChipStrip(itemCount: number) {
   return { ref, dragging, edges, onPointerDown, onClickCapture };
 }
 
-export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilteredChange }: ChannelListProps) {
+export function LiveChannelList({
+  channels,
+  groups,
+  currentUrl,
+  onSelect,
+  onFilteredChange,
+}: ChannelListProps) {
   // 精确订阅：避免任何 store 字段变化（尤其测活节流写回）引发本组件重渲染
   const liveFavorites = useAppStore((s) => s.liveFavorites);
   const liveRecent = useAppStore((s) => s.liveRecent);
@@ -189,8 +209,14 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
   }, [isProbing]);
 
   const favSet = useMemo(() => new Set(liveFavorites), [liveFavorites]);
-  const recentOrder = useMemo(() => new Map(liveRecent.map((r, i) => [r.url, i] as const)), [liveRecent]);
-  const normalizedKeyword = useMemo(() => normalizeForSearch(debouncedKeyword.trim()), [debouncedKeyword]);
+  const recentOrder = useMemo(
+    () => new Map(liveRecent.map((r, i) => [r.url, i] as const)),
+    [liveRecent],
+  );
+  const normalizedKeyword = useMemo(
+    () => normalizeForSearch(debouncedKeyword.trim()),
+    [debouncedKeyword],
+  );
 
   // 先做视图/分组/搜索/排序（不含可用性筛选）：可用性计数必须基于这份列表，
   // 否则点击筛选后 filtered 收缩，两个计数会跟着变小、与实际展示对不上
@@ -213,14 +239,24 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
       list = list.filter((c) => matchesKeyword(c, normalizedKeyword));
     }
     return sortChannels(list, sortMode, { recentOrder, probeOf: (url) => probeResults.get(url) });
-  }, [channels, favSet, liveRecent, view, group, normalizedKeyword, sortMode, recentOrder, probeResults]);
+  }, [
+    channels,
+    favSet,
+    liveRecent,
+    view,
+    group,
+    normalizedKeyword,
+    sortMode,
+    recentOrder,
+    probeResults,
+  ]);
 
   const filtered = useMemo(
     () =>
       aliveFilter === 'off'
         ? matched
         : matched.filter((c) => matchesAlive(probeResults.get(c.url), aliveFilter)),
-    [matched, aliveFilter, probeResults]
+    [matched, aliveFilter, probeResults],
   );
 
   // 上报筛选排序结果给页面（键盘换台用）；列表存父组件 ref，不触发父组件重渲染
@@ -272,7 +308,7 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
       const idx = filteredRef.current.findIndex((c) => c.url === url);
       if (idx >= 0) virtualizer.scrollToIndex(idx, { align: 'auto' });
     },
-    [virtualizer]
+    [virtualizer],
   );
 
   const onListKeyDown = (e: React.KeyboardEvent) => {
@@ -299,33 +335,24 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
   }, []);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* 视图 tab */}
-      <div className="flex items-center gap-1 px-3 pt-2.5 pb-2 border-b border-line shrink-0">
-        {(
-          [
-            ['all', `全部${channels.length ? ` ${channels.length}` : ''}`],
-            ['fav', `收藏${liveFavorites.length ? ` ${liveFavorites.length}` : ''}`],
-            ['recent', '最近'],
-          ] as [View, string][]
-        ).map(([v, label]) => (
-          <button
-            key={v}
-            className={cn(
-              'px-2.5 py-1 rounded-md text-xs transition-colors',
-              view === v ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-content hover:bg-hover'
-            )}
-            onClick={() => setView(v)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+    <Flex style={{ height: '100%', minHeight: 0 }} vertical>
+      <Segmented<View>
+        style={{ margin: 12, flexShrink: 0 }}
+        block
+
+        value={view}
+        onChange={setView}
+        options={[
+          { value: 'all', label: `全部${channels.length ? ' ' + channels.length : ''}` },
+          { value: 'fav', label: `收藏${liveFavorites.length ? ' ' + liveFavorites.length : ''}` },
+          { value: 'recent', label: '最近' },
+        ]}
+      />
 
       {/* 搜索 + 排序 */}
-      <div className="px-3 py-2 shrink-0 flex items-center gap-1.5">
-        <input
-          className="input w-full !py-1.5 text-xs"
+      <Flex style={{ paddingInline: 12, paddingBlock: 8, flexShrink: 0 }} align="center" gap={6}>
+        <Input
+          style={{ width: '100%', paddingBlock: 6, fontSize: 'var(--ant-font-size-sm)' }}
           placeholder="搜索频道 / tvg-id / 分组..."
           value={keyword}
           maxLength={60}
@@ -340,10 +367,12 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
             }
           }}
         />
-        <Dropdown
-          className="shrink-0 [&>button]:!py-1.5 [&>button]:!px-2 [&>button]:text-xs"
+        <Select
+          style={{ flexShrink: 0 }}
+          popupMatchSelectWidth={false}
+
           value={sortMode}
-          ariaLabel="排序方式"
+          aria-label="排序方式"
           onChange={(v) => setSortMode(v as LiveSortMode)}
           options={[
             { value: 'default', label: '默认' },
@@ -353,31 +382,42 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
             { value: 'recent', label: '最近看' },
           ]}
         />
-      </div>
+      </Flex>
 
       {/* 测活 + 可用性筛选工具条 */}
-      <div className="flex items-center gap-1.5 px-3 pb-2 shrink-0 flex-wrap">
-        <button
-          className="btn-ghost btn-sm"
+      <Flex
+        style={{ paddingInline: 12, paddingBottom: 8, flexShrink: 0 }}
+        align="center"
+        gap={6}
+        wrap
+      >
+        <Button
+          type="default"
+          size="small"
+
           disabled={isProbing || filtered.length === 0}
           onClick={() => void probe(filtered)}
           title="探测当前列表频道是否可播（分片级校验；量大时自动分批排队跑完，结果 6 小时内有效）"
         >
           测活
-        </button>
+        </Button>
         {/* 同一操作位按时机切换：测活中=取消（保留已完成结果）；空闲且有结果=清除全部 */}
         {isProbing ? (
-          <button
-            className="btn-ghost btn-sm"
+          <Button
+            type="default"
+            size="small"
+
             onClick={cancelProbe}
             title="中止本次测活，已完成的结果会保留"
           >
             取消
-          </button>
+          </Button>
         ) : (
           probeResults.size > 0 && (
-            <button
-              className="btn-ghost btn-sm"
+            <Button
+              type="default"
+              size="small"
+
               onClick={() => {
                 clearProbe();
                 setAliveFilter('off');
@@ -385,101 +425,148 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
               title="清除全部测活结果，并取消可用性筛选"
             >
               清除
-            </button>
+            </Button>
           )
         )}
         {isProbing && probeProgress && (
-          <span className="text-[10px] text-faint whitespace-nowrap">
+          <Typography.Text
+            type="secondary"
+            style={{
+              fontSize: '10px',
+
+              whiteSpace: 'nowrap',
+            }}
+          >
             探测中 {formatProbeProgress(probeProgress)}
-          </span>
+          </Typography.Text>
         )}
         {probeHint && (
-          <span className="text-[10px] text-faint">{probeHint}</span>
+          <Typography.Text type="secondary" style={{ fontSize: '10px' }}>
+            {probeHint}
+          </Typography.Text>
         )}
         {probeResults.size > 0 && !isProbing && (
           <>
-            <button
-              className={cn(
-                'shrink-0 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap transition-colors border',
-                aliveFilter === 'green'
-                  ? 'bg-accent text-on-accent border-accent'
-                  : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
-              )}
-              onClick={() => setAliveFilter((v) => (v === 'green' ? 'off' : 'green'))}
-              title="只看分片级验证通过的频道"
-            >
-              绿点 {aliveCounts.green}
-            </button>
-            <button
-              className={cn(
-                'shrink-0 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap transition-colors border',
-                aliveFilter === 'ok'
-                  ? 'bg-accent text-on-accent border-accent'
-                  : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
-              )}
-              onClick={() => setAliveFilter((v) => (v === 'ok' ? 'off' : 'ok'))}
-              title="看所有验证通过（含直链/清单级弱验证）的频道"
-            >
-              可播 {aliveCounts.ok}
-            </button>
+            <Tooltip title="只看分片级验证通过的频道">
+              <Tag.CheckableTag
+                style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                checked={aliveFilter === 'green'}
+
+                onChange={() => setAliveFilter((v) => (v === 'green' ? 'off' : 'green'))}
+              >
+                绿点 {aliveCounts.green}
+              </Tag.CheckableTag>
+            </Tooltip>
+            <Tooltip title="看所有验证通过（含直链/清单级弱验证）的频道">
+              <Tag.CheckableTag
+                style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                checked={aliveFilter === 'ok'}
+
+                onChange={() => setAliveFilter((v) => (v === 'ok' ? 'off' : 'ok'))}
+              >
+                可播 {aliveCounts.ok}
+              </Tag.CheckableTag>
+            </Tooltip>
           </>
         )}
-      </div>
+      </Flex>
 
       {/* 分组标签条（横向可滑动：滚轮/滚动条之外，鼠标可直接拖动） */}
       {view === 'all' && groups.length > 0 && (
-        <div className="px-3 pb-2 shrink-0">
-          <div className="relative">
-            <div
+        <Flex vertical style={{ paddingInline: 12, paddingBottom: 8, flexShrink: 0 }}>
+          <Flex vertical style={{ position: 'relative' }}>
+            <Flex
+              gap={6}
               ref={chipStrip.ref}
               onPointerDown={chipStrip.onPointerDown}
               onClickCapture={chipStrip.onClickCapture}
-              className={cn(
-                // select-none 常驻：拖动时若允许选字，会变成"选中标签文字"而不是滚动
-                'flex gap-1.5 overflow-x-auto scrollbar-thin pb-1 select-none',
-                chipStrip.dragging ? 'cursor-grabbing' : 'cursor-grab'
-              )}
+              style={{
+                overflowX: 'auto',
+                paddingBottom: 4,
+                userSelect: 'none',
+                ...(chipStrip.dragging ? { cursor: 'grabbing' } : { cursor: 'grab' }),
+              }}
             >
-              <GroupChip active={!group} label="全部分组" onClick={() => setGroup('')} />
+              <Tag.CheckableTag checked={!group} onChange={() => setGroup('')}>
+                全部分组
+              </Tag.CheckableTag>
               {groups.map((g) => (
-                <GroupChip key={g} active={group === g} label={g} onClick={() => setGroup(g === group ? '' : g)} />
+                <Tag.CheckableTag
+                  key={g}
+                  checked={group === g}
+                  onChange={() => setGroup(g === group ? '' : g)}
+                >
+                  {g}
+                </Tag.CheckableTag>
               ))}
-            </div>
+            </Flex>
             {/* 左右渐隐：提示这一栏还能横向拖动 */}
             {chipStrip.edges.left && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-surface-raised to-transparent" />
+              <Flex
+                style={{
+                  pointerEvents: 'none',
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: 24,
+                  backgroundImage:
+                    'linear-gradient(to right, var(--ant-color-bg-elevated), transparent)',
+                }}
+              />
             )}
             {chipStrip.edges.right && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-surface-raised to-transparent" />
+              <Flex
+                style={{
+                  pointerEvents: 'none',
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: 24,
+                  backgroundImage:
+                    'linear-gradient(to left, var(--ant-color-bg-elevated), transparent)',
+                }}
+              />
             )}
-          </div>
-        </div>
+          </Flex>
+        </Flex>
       )}
 
       {/* 频道列表（容器可聚焦，↑↓/Enter 光标导航） */}
       <div
+        style={{
+          minHeight: 0,
+          overflowY: 'auto',
+          paddingInline: 8,
+          paddingBottom: 8,
+          flex: '1 1 0%',
+        }}
         ref={listRef}
         data-channel-list
         tabIndex={0}
         onKeyDown={onListKeyDown}
-        className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-2 pb-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
       >
         {filtered.length === 0 ? (
-          <EmptyState
-            variant="plain"
-            className="!py-10"
-            title={
-              view === 'fav'
-                ? '暂无收藏频道，点击频道右侧星标即可收藏'
-                : view === 'recent'
-                  ? '暂无观看记录'
-                  : channels.length === 0
-                    ? '暂无频道，请先在设置中添加直播源'
-                    : aliveFilter !== 'off' && probeResults.size > 0
-                      ? '没有匹配该可用性的频道，可放宽或清除筛选'
-                      : '没有匹配的频道'
+          <Empty
+            style={{ paddingBlock: 40 }}
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <Space orientation="vertical">
+                <Typography.Text>
+                  {view === 'fav'
+                    ? '暂无收藏频道，点击频道右侧星标即可收藏'
+                    : view === 'recent'
+                      ? '暂无观看记录'
+                      : channels.length === 0
+                        ? '暂无频道，请先在设置中添加直播源'
+                        : aliveFilter !== 'off' && probeResults.size > 0
+                          ? '没有匹配该可用性的频道，可放宽或清除筛选'
+                          : '没有匹配的频道'}
+                </Typography.Text>
+              </Space>
             }
-          />
+          ></Empty>
         ) : (
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
             {virtualizer.getVirtualItems().map((vi) => (
@@ -514,23 +601,7 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function GroupChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      className={cn(
-        'shrink-0 px-2.5 py-1 rounded-full text-xs whitespace-nowrap transition-colors border',
-        active
-          ? 'bg-accent text-on-accent border-accent'
-          : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
-      )}
-      onClick={onClick}
-    >
-      {label}
-    </button>
+    </Flex>
   );
 }
 
@@ -568,7 +639,7 @@ const ChannelRow = memo(function ChannelRow({
   // 状态点语义：绿=分片级验证且吞吐达标；琥珀=限速/弱验证（直链/清单级）或超时；红=不可达
   const weakLevel = probe?.ok && probe.level !== 'segment';
   const amber = Boolean(probe && (weakLevel || (!probe.ok && probe.timedOut) || slow));
-  const dotClass = amber ? 'bg-warning' : probe?.ok ? 'bg-success' : 'bg-danger';
+
   const levelText =
     probe?.level === 'segment'
       ? '分片可用'
@@ -590,70 +661,92 @@ const ChannelRow = memo(function ChannelRow({
     : undefined;
 
   return (
-    <div data-url={channel.url}>
+    <Card
+      hoverable
+      size="small"
+      onClick={() => onSelect(channel)}
+      styles={{ body: { padding: 8 } }}
+      style={{
+        background: active ? 'var(--ant-color-primary-bg)' : undefined,
+        outline: cursor ? '1px solid var(--ant-color-primary-border)' : undefined,
+      }}
+      data-url={channel.url}
+    >
       {/* 不用 role="button"：行内含收藏/删除等真实按钮，嵌套 button 角色语义非法；
           键盘操作由外层列表容器的 ↑↓ 导航提供 */}
-      <div
-        className={cn(
-          'group flex items-center gap-2.5 px-2 py-2 rounded-md cursor-pointer transition-colors relative',
-          active ? 'bg-accent/10' : 'hover:bg-hover',
-          cursor && 'ring-1 ring-accent/70'
-        )}
-        onClick={() => onSelect(channel)}
-      >
+      <Flex align="center" gap={10}>
         {/* 当前播放高亮竖条 */}
-        <span
-          className={cn(
-            'absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full bg-accent transition-all duration-200',
-            active ? 'h-5 opacity-100' : 'h-0 opacity-0'
-          )}
-        />
+        <Badge color={'var(--ant-color-primary)'} />
         {/* 台标 */}
-        <div className="w-7 h-7 shrink-0 rounded bg-chip flex items-center justify-center overflow-hidden">
+        <Flex
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 'var(--ant-border-radius-sm)',
+            backgroundColor: 'var(--ant-color-fill-tertiary)',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}
+
+          align="center"
+          justify="center"
+        >
           {logo && !logoFailed ? (
             <SmartImage
               url={logo}
               mode={imageProxyMode}
               customProxy={customProxy}
               alt=""
-              className="w-full h-full object-contain"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               onExhausted={() => setLogoFailed(true)}
             />
           ) : (
-            <span className="text-[10px] text-faint">{channel.name.slice(0, 1)}</span>
+            <Typography.Text type="secondary" style={{ fontSize: '10px' }}>
+              {channel.name.slice(0, 1)}
+            </Typography.Text>
           )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
+        </Flex>
+        <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+          <Flex style={{ minWidth: 0 }} align="center" gap={6}>
             {probe && (
-              <span
-                className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotClass)}
-                title={probeTitle}
-              />
+              <Tooltip title={probeTitle}>
+                <Badge status={amber ? 'warning' : probe?.ok ? 'success' : 'error'} />
+              </Tooltip>
             )}
-            <span className={cn('text-xs truncate', active ? 'text-accent font-medium' : 'text-content')}>
+            <Typography.Text
+              ellipsis
+              style={{
+                fontSize: 'var(--ant-font-size-sm)',
+                minWidth: 0,
+                ...(active
+                  ? { color: 'var(--ant-color-primary)', fontWeight: 500 }
+                  : { color: 'var(--ant-color-text)' }),
+              }}
+            >
               {channel.name}
-            </span>
+            </Typography.Text>
             {isHevc && (
-              <span
-                className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
+              <Tag
+                style={{ flexShrink: 0 }}
+                color="warning"
                 title="H.265 编码：测活通过但 Chromium 内核通常无法解码，建议用 Edge/Safari"
               >
                 H.265
-              </span>
+              </Tag>
             )}
-          </div>
+          </Flex>
           {channel.group && (
-            <div className="text-[10px] text-faint truncate">{channel.group}</div>
+            <Typography.Text type="secondary" ellipsis style={{ fontSize: '10px', minWidth: 0 }}>
+              {channel.group}
+            </Typography.Text>
           )}
-        </div>
+        </Flex>
         {/* 最近观看单条删除（仅最近视图；移动端常显） */}
         {onRemoveRecent && (
-          <button
-            className={cn(
-              'shrink-0 p-1 rounded transition-colors',
-              'text-faint/60 opacity-60 lg:opacity-0 lg:group-hover:opacity-100 hover:text-danger'
-            )}
+          <Button
+            style={{ flexShrink: 0 }}
+            type="text"
+
             aria-label="删除该观看记录"
             title="删除该观看记录"
             onClick={(e) => {
@@ -661,19 +754,15 @@ const ChannelRow = memo(function ChannelRow({
               onRemoveRecent(channel.url);
             }}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <CloseOutlined style={{ fontSize: 14 }} aria-hidden />
+          </Button>
         )}
         {/* 收藏星标（移动端常显，桌面 hover 出现） */}
-        <button
-          className={cn(
-            'shrink-0 p-1 rounded transition-transform active:scale-125',
-            isFav
-              ? 'text-warning'
-              : 'text-faint/60 opacity-60 lg:opacity-0 lg:group-hover:opacity-100 hover:text-warning'
-          )}
+        <Button
+          style={{ flexShrink: 0 }}
+          color={isFav ? 'gold' : 'default'}
+          variant="text"
+
           aria-label={isFav ? '取消收藏' : '收藏'}
           title={isFav ? '取消收藏' : '收藏'}
           onClick={(e) => {
@@ -682,16 +771,13 @@ const ChannelRow = memo(function ChannelRow({
             useAppStore.getState().toggleLiveFavorite(channel.url);
           }}
         >
-          <svg className="w-3.5 h-3.5" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-            />
-          </svg>
-        </button>
-      </div>
-    </div>
+          {isFav ? (
+            <StarFilled style={{ fontSize: 14 }} aria-hidden />
+          ) : (
+            <StarOutlined style={{ fontSize: 14 }} aria-hidden />
+          )}
+        </Button>
+      </Flex>
+    </Card>
   );
 });

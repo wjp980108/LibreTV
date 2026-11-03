@@ -1,11 +1,14 @@
 'use client';
 
+import { VideoCameraOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Card, Tag, Flex, Collapse, Typography, Grid } from 'antd';
+
 import { useEffect, useMemo, useState } from 'react';
+
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { qualityKey } from '@/lib/quality';
-import { compactRemarks, formatRemarks, inferGroupRemarks } from '@/lib/remarks';
-import { cn } from '@/lib/utils';
+import { compactRemarks, inferGroupRemarks } from '@/lib/remarks';
 import { SmartImage } from './smart-image';
 import { QualityBadge } from './quality-badge';
 import { useQualityProbe } from './use-quality-probe';
@@ -23,7 +26,11 @@ export interface AggregatedGroup {
   items: SearchResultItem[];
 }
 
-function buildGroup(name: string, year: string | undefined, items: SearchResultItem[]): AggregatedGroup {
+function buildGroup(
+  name: string,
+  year: string | undefined,
+  items: SearchResultItem[],
+): AggregatedGroup {
   return {
     key: `${name}|${year ?? ''}|${items.map((i) => `${i.sourceKey}_${i.vodId}`).join(',')}`,
     name,
@@ -55,7 +62,13 @@ export function aggregateResults(list: SearchResultItem[]): AggregatedGroup[] {
     const years = [...new Set(items.map((i) => i.year).filter(Boolean))] as string[];
     if (years.length > 1) {
       for (const y of years) {
-        groups.push(buildGroup(name, y, items.filter((i) => i.year === y)));
+        groups.push(
+          buildGroup(
+            name,
+            y,
+            items.filter((i) => i.year === y),
+          ),
+        );
       }
       const noYear = items.filter((i) => !i.year);
       if (noYear.length) groups.push(buildGroup(name, undefined, noYear));
@@ -81,6 +94,7 @@ export function AggregatedCard({
   /** 完整源配置：探测画质需要 source.url / source.detail，搜索结果里只带 sourceUrl */
   sources?: SourceConfig[];
 }) {
+  const screens = Grid.useBreakpoint();
   const imageProxyMode = useAppStore((s) => s.imageProxyMode);
   const customImageProxy = useAppStore((s) => s.customImageProxy);
   const [imgFailed, setImgFailed] = useState(false);
@@ -90,7 +104,8 @@ export function AggregatedCard({
   const multi = group.items.length > 1;
   const adult = useMemo(() => group.items.some((i) => i.isAdult), [group.items]);
 
-  const { qualities, probing, progress, prime, probe, probeQueued, retry } = useQualityProbe(sources);
+  const { qualities, probing, progress, prime, probe, probeQueued, retry } =
+    useQualityProbe(sources);
 
   // 收起态就要有结论：先读缓存（展开时才真正探测）。
   // 依赖 group.key 而不是 items 数组——搜索页每次重渲染都会重建分组对象，
@@ -108,24 +123,16 @@ export function AggregatedCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multi, inView, group.key]);
 
-  const activate = () => {
-    if (multi) {
-      const next = !expanded;
-      setExpanded(next);
-      if (next) probe(group.items);
-    } else {
-      onOpen(group.items[0]);
-    }
-  };
-
   const singleItem = multi ? undefined : group.items[0];
   const singleKey = singleItem ? qualityKey(singleItem.sourceKey, singleItem.vodId) : undefined;
 
   // 展开面板按画质降序（同级保持原有源顺序）：探到一个更好的就往上走，
   // 用户不必自己横向比较三行灰字。没探到 / 未探到的排在最后。
-  const heightOf = (item: SearchResultItem) => qualities[qualityKey(item.sourceKey, item.vodId)]?.height ?? 0;
+  const heightOf = (item: SearchResultItem) =>
+    qualities[qualityKey(item.sourceKey, item.vodId)]?.height ?? 0;
   const sortedItems = useMemo(() => {
-    const height = (item: SearchResultItem) => qualities[qualityKey(item.sourceKey, item.vodId)]?.height ?? 0;
+    const height = (item: SearchResultItem) =>
+      qualities[qualityKey(item.sourceKey, item.vodId)]?.height ?? 0;
     return group.items
       .map((item, index) => ({ item, index }))
       .sort((a, b) => height(b.item) - height(a.item) || a.index - b.index)
@@ -142,306 +149,249 @@ export function AggregatedCard({
       ? remarksList[0]
       : undefined;
 
-  return (
-    <div
-      ref={inViewRef}
-      className={cn('card', !multi && 'hover:scale-[1.02] hover:shadow-md', multi && expanded && 'ring-1 ring-accent/40')}
-    >
-      {/* 不用 h-full：展开面板需要撑高卡片，等高裁切会让面板不可见 */}
-      <div
-        className="flex h-full cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
-        role="button"
-        tabIndex={0}
-        aria-expanded={multi ? expanded : undefined}
-        onClick={activate}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            activate();
-          }
+  const summary = (
+    <Flex gap={12} style={{ minWidth: 0 }}>
+      <Flex
+        align="center"
+        justify="center"
+        style={{
+          width: screens.sm ? 108 : 84,
+          aspectRatio: '2/3',
+          flexShrink: 0,
+          overflow: 'hidden',
+          borderRadius: 6,
+          background: 'var(--ant-color-fill-tertiary)',
         }}
       >
         {showImg ? (
-          <div className="relative shrink-0 w-[105px] sm:w-[120px] aspect-[2/3] bg-chip">
-            <SmartImage
-              url={group.pic}
-              mode={imageProxyMode}
-              customProxy={customImageProxy}
-              alt={group.name}
-              className="absolute inset-0 h-full w-full object-cover"
-              onExhausted={() => setImgFailed(true)}
-            />
-            <div className="absolute inset-0 bg-linear-to-r from-black/30 to-transparent" />
-            {multi && (
-              <span className="absolute top-1.5 left-1.5 tag bg-black/70 text-accent font-medium">
-                {group.items.length} 源
-              </span>
-            )}
-          </div>
+          <SmartImage
+            url={group.pic}
+            mode={imageProxyMode}
+            customProxy={customImageProxy}
+            alt={group.name}
+            style={{ width: '100%', height: '100%' }}
+            onExhausted={() => setImgFailed(true)}
+          />
         ) : (
-          <div className="relative shrink-0 w-[105px] sm:w-[120px] aspect-[2/3] bg-chip flex items-center justify-center">
-            <svg className="w-8 h-8 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16m10-16v16M3 6a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm8 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6z" />
-            </svg>
-            {multi && (
-              <span className="absolute top-1.5 left-1.5 tag bg-black/70 text-accent font-medium">
-                {group.items.length} 源
-              </span>
-            )}
-          </div>
+          <VideoCameraOutlined
+            style={{ fontSize: 32, color: 'var(--ant-color-text-quaternary)' }}
+            aria-hidden
+          />
         )}
-
-        <div className="p-2.5 flex flex-col flex-grow min-w-0">
-          <div className="flex-grow">
-            <h3 className="font-semibold text-sm text-content mb-1.5 line-clamp-2" title={group.name}>
-              {group.name}
-            </h3>
-            <div className="flex flex-wrap gap-1 mb-1.5">
-              {group.typeName && <span className="tag bg-accent/15 text-accent">{group.typeName}</span>}
-              {group.year && <span className="tag bg-purple-500/15 text-purple-600 dark:text-purple-300">{group.year}</span>}
-              {adult && <span className="tag bg-pink-500/15 text-pink-600 dark:text-pink-400">(18+)</span>}
-              {/* 单源卡片没有展开列表，画质只能在这里露出；失败态可点重试 */}
-              {singleKey && (
-                <QualityBadge
-                  entry={qualities[singleKey]}
-                  loading={probing[singleKey]}
-                  onRetry={singleItem ? () => retry([singleItem]) : undefined}
-                />
-              )}
-            </div>
-            <p className="text-xs text-muted line-clamp-2 mb-2">{group.remarks || '暂无介绍'}</p>
-          </div>
-          <div className="flex items-center justify-between gap-1.5 mt-auto pt-1.5 border-t border-line">
-            <span className="tag bg-chip text-muted truncate max-w-[80%]">
-              {multi ? `${group.items.length} 个来源` : group.items[0].sourceName}
-            </span>
-            {multi && (
-              <span className="flex items-center gap-1 shrink-0">
-                {/* 收起态先给结论：最高画质比「N 个来源」更影响要不要点开 */}
-                {progress.best && (
-                  <span
-                    className="tag bg-accent/15 text-accent font-medium"
-                    title={
-                      progress.known < progress.total
-                        ? `已探到 / 实测的最高画质（${progress.known}/${progress.total} 个来源已有结论）`
-                        : '已探到 / 实测的最高画质'
-                    }
-                  >
-                    {progress.best}
-                  </span>
-                )}
-                <svg
-                  className={cn('w-4 h-4 text-faint transition-transform', expanded && 'rotate-180')}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {multi && expanded && (
-        <div className="border-t border-line p-2.5 animate-fade-in">
-          <div className="flex items-baseline justify-between gap-2 mb-1.5">
-            <p className="text-[10px] text-faint">
-              选择来源
-              {sharedRemarks ? ` · 均 ${sharedRemarks}` : ''}
-            </p>
-            {progress.total > 0 &&
-              (progress.done < progress.total ? (
-                <p className="text-[10px] text-faint tabular-nums">
-                  探测中 {progress.done}/{progress.total}
-                </p>
-              ) : (
-                // 探完后「3/3」已经没有信息量，换成用户真正要的结论
-                <p className="text-[10px] text-accent tabular-nums">
-                  {progress.best ? `最高 ${progress.best}` : '未能探到画质'}
-                  {progress.failed > 0 ? ` · ${progress.failed} 源未探到` : ''}
-                </p>
-              ))}
-          </div>
-          {/*
-            单列全宽行：两列在卡片实际宽度（约 330px）下每列只剩 148px，
-            源名必截断，且源数为奇数时必然留半行空。一行内「源名 / 画质 / 集数 / 播放」
-            四段排开，信息密度更高也更容易纵向扫读。
-          */}
-          <div className="flex flex-col gap-1.5">
-            {sortedItems.map((item) => {
-              const itemKey = qualityKey(item.sourceKey, item.vodId);
-              const label = compactRemarks(item.remarks);
-              const isBest = itemKey === bestKey;
-              return (
-                <div
-                  key={`${item.sourceKey}_${item.vodId}`}
-                  role="button"
-                  tabIndex={0}
-                  className={cn(
-                    'group flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2',
-                    'text-xs transition-all cursor-pointer',
-                    'bg-chip hover:border-accent hover:bg-accent/10',
-                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/50',
-                    isBest ? 'border-accent/50' : 'border-line',
-                    item.isAdult && 'border-pink-500/30'
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpen(item);
-                  }}
-                  onKeyDown={(e) => {
-                    // 不拦冒泡会连带触发整卡的 activate（外层 div 也在监听 Enter/Space）
-                    if (e.key !== 'Enter' && e.key !== ' ') return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onOpen(item);
-                  }}
-                  aria-label={`使用 ${item.sourceName} 播放${label && !sharedRemarks ? `，${label}` : ''}`}
-                >
-                  <span className="font-medium text-content truncate flex-1 min-w-0">{item.sourceName}</span>
-                  <QualityBadge
-                    entry={qualities[itemKey]}
-                    loading={probing[itemKey]}
-                    onRetry={() => retry([item])}
-                    // 定宽 + 等宽数字：三行的 360P / 540P / 1080P 左缘对齐，不随字符数抖动
-                    className="min-w-[3.25rem] justify-center tabular-nums"
-                  />
-                  {/* 集数一致时已提到表头，逐行不再重复 */}
-                  {!sharedRemarks && label && (
-                    <span className="text-faint shrink-0 tabular-nums">{label}</span>
-                  )}
-                  <svg
-                    className="w-3.5 h-3.5 text-accent shrink-0 transition-transform group-hover:translate-x-0.5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+      </Flex>
+      <Flex vertical gap={8} style={{ minWidth: 0, flex: 1 }}>
+        <Typography.Text strong ellipsis={{ tooltip: group.name }}>
+          {group.name}
+        </Typography.Text>
+        <Flex wrap gap={4}>
+          {group.typeName && <Tag color="gold">{group.typeName}</Tag>}
+          {group.year && <Tag color="purple">{group.year}</Tag>}
+          {adult && <Tag color="magenta">18+</Tag>}
+          {singleKey && (
+            <QualityBadge
+              entry={qualities[singleKey]}
+              loading={probing[singleKey]}
+              onRetry={singleItem ? () => retry([singleItem]) : undefined}
+            />
+          )}
+        </Flex>
+        <Typography.Paragraph
+          type="secondary"
+          ellipsis={{ rows: 2 }}
+          style={{ margin: 0, fontSize: 12 }}
+        >
+          {group.remarks || '暂无介绍'}
+        </Typography.Paragraph>
+        <Flex wrap align="center" gap={4} style={{ marginTop: 'auto' }}>
+          <Tag>{multi ? `${group.items.length} 个来源` : group.items[0].sourceName}</Tag>
+          {multi && progress.best && <Tag color="gold">最高 {progress.best}</Tag>}
+        </Flex>
+      </Flex>
+    </Flex>
   );
-}
-
-/** 影片卡片：封面加载失败时逐级降级到占位图（未聚合的单一结果使用） */
-export function VideoCard({ item, onClick }: { item: SearchResultItem; onClick: () => void }) {
-  const imageProxyMode = useAppStore((s) => s.imageProxyMode);
-  const customImageProxy = useAppStore((s) => s.customImageProxy);
-  const [imgFailed, setImgFailed] = useState(false);
-  const showImg = !!item.pic && !imgFailed;
 
   return (
-    <div
-      className="card cursor-pointer hover:scale-[1.02] hover:shadow-md h-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40"
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          // 阻止空格触发页面滚动（AggregatedCard 已是此写法，此处对齐）
-          e.preventDefault();
-          onClick();
-        }
-      }}
+    <Card
+      ref={inViewRef}
+      size="small"
+      hoverable={!multi}
+      styles={{ body: { padding: multi ? 0 : 12 } }}
+      role={!multi ? 'button' : undefined}
+      tabIndex={!multi ? 0 : undefined}
+      onClick={!multi ? () => onOpen(group.items[0]) : undefined}
+      onKeyDown={
+        !multi
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpen(group.items[0]);
+              }
+            }
+          : undefined
+      }
     >
-      <div className="flex h-full">
-        {showImg ? (
-          <div className="relative shrink-0 w-[105px] sm:w-[120px] aspect-[2/3] bg-chip">
-            <SmartImage
-              url={item.pic}
-              mode={imageProxyMode}
-              customProxy={customImageProxy}
-              alt={item.name}
-              className="h-full w-full object-cover"
-              onExhausted={() => setImgFailed(true)}
-            />
-            <div className="absolute inset-0 bg-linear-to-r from-black/30 to-transparent" />
-          </div>
-        ) : (
-          <div className="shrink-0 w-[105px] sm:w-[120px] aspect-[2/3] bg-chip flex items-center justify-center">
-            <svg className="w-8 h-8 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16m10-16v16M3 6a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm8 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6z" />
-            </svg>
-          </div>
-        )}
-
-        <div className="p-2.5 flex flex-col flex-grow min-w-0">
-          <div className="flex-grow">
-            <h3 className="font-semibold text-sm text-content mb-1.5 line-clamp-2" title={item.name}>
-              {item.name}
-            </h3>
-            <div className="flex flex-wrap gap-1 mb-1.5">
-              {item.typeName && <span className="tag bg-accent/15 text-accent">{item.typeName}</span>}
-              {item.year && <span className="tag bg-purple-500/15 text-purple-600 dark:text-purple-300">{item.year}</span>}
-            </div>
-            <p className="text-xs text-muted line-clamp-2 mb-2">{formatRemarks(item.remarks) || '暂无介绍'}</p>
-          </div>
-          <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-line">
-            <span className="tag bg-chip text-muted truncate max-w-[80%]">{item.sourceName}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+      {multi ? (
+        <Collapse
+          ghost
+          size="small"
+          expandIconPlacement="end"
+          activeKey={expanded ? ['sources'] : []}
+          onChange={(keys) => {
+            const next = keys.includes('sources');
+            setExpanded(next);
+            if (next) probe(group.items);
+          }}
+          items={[
+            {
+              key: 'sources',
+              label: summary,
+              children: (
+                <Flex vertical gap={8}>
+                  <Flex justify="space-between" wrap gap={4}>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      选择来源{sharedRemarks ? ` · 均 ${sharedRemarks}` : ''}
+                    </Typography.Text>
+                    {progress.total > 0 && (
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {progress.done < progress.total
+                          ? `探测中 ${progress.done}/${progress.total}`
+                          : `${progress.best ? '最高 ' + progress.best : '未能探到画质'}${progress.failed > 0 ? ' · ' + progress.failed + ' 源未探到' : ''}`}
+                      </Typography.Text>
+                    )}
+                  </Flex>
+                  {sortedItems.map((item) => {
+                    const itemKey = qualityKey(item.sourceKey, item.vodId);
+                    const label = compactRemarks(item.remarks);
+                    return (
+                      <Card
+                        key={itemKey}
+                        size="small"
+                        hoverable
+                        role="button"
+                        tabIndex={0}
+                        style={{
+                          borderColor:
+                            itemKey === bestKey ? 'var(--ant-color-primary-border)' : undefined,
+                        }}
+                        styles={{ body: { padding: 8 } }}
+                        aria-label={`使用 ${item.sourceName} 播放${label && !sharedRemarks ? '，' + label : ''}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(item);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onOpen(item);
+                          }
+                        }}
+                      >
+                        <Flex align="center" gap={8}>
+                          <Typography.Text ellipsis strong style={{ minWidth: 0, flex: 1 }}>
+                            {item.sourceName}
+                          </Typography.Text>
+                          <QualityBadge
+                            entry={qualities[itemKey]}
+                            loading={probing[itemKey]}
+                            onRetry={() => retry([item])}
+                            style={{
+                              minWidth: 52,
+                              textAlign: 'center',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          />
+                          {!sharedRemarks && label && (
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                              {label}
+                            </Typography.Text>
+                          )}
+                          <PlayCircleOutlined style={{ fontSize: 18 }} aria-hidden />
+                        </Flex>
+                      </Card>
+                    );
+                  })}
+                </Flex>
+              ),
+            },
+          ]}
+        />
+      ) : (
+        summary
+      )}
+    </Card>
   );
 }
 
-/** 豆瓣推荐卡片（无来源徽章，点击直接搜索） */
-export function DoubanCard({ item, onClick }: { item: { title: string; cover: string; rating?: string }; onClick: () => void }) {
+/** 单源影片卡片，复用聚合卡片的单源业务分支。 */
+export function VideoCard({ item, onClick }: { item: SearchResultItem; onClick: () => void }) {
+  return <AggregatedCard group={buildGroup(item.name, item.year, [item])} onOpen={onClick} />;
+}
+
+/** 推荐海报：Card 负责交互、Typography 负责截断。 */
+export function DoubanCard({
+  item,
+  onClick,
+}: {
+  item: { title: string; cover: string; rating?: string };
+  onClick: () => void;
+}) {
   const imageProxyMode = useAppStore((s) => s.imageProxyMode);
   const customImageProxy = useAppStore((s) => s.customImageProxy);
   const [imgFailed, setImgFailed] = useState(false);
   useEffect(() => setImgFailed(false), [item.cover]);
-
   return (
-    <div
-      className="card cursor-pointer hover:scale-[1.03] hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40"
+    <Card
+      hoverable
+      size="small"
       role="button"
       tabIndex={0}
+      aria-label={`搜索 ${item.title}`}
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          // 阻止空格触发页面滚动（AggregatedCard 已是此写法，此处对齐）
-          e.preventDefault();
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
           onClick();
         }
       }}
+      cover={
+        <Flex
+          align="center"
+          justify="center"
+          style={{
+            aspectRatio: '2/3',
+            overflow: 'hidden',
+            background: 'var(--ant-color-fill-tertiary)',
+          }}
+        >
+          {item.cover && !imgFailed ? (
+            <SmartImage
+              url={item.cover}
+              mode={imageProxyMode}
+              customProxy={customImageProxy}
+              alt={item.title}
+              style={{ width: '100%', height: '100%' }}
+              onExhausted={() => setImgFailed(true)}
+            />
+          ) : (
+            <VideoCameraOutlined
+              style={{ fontSize: 32, color: 'var(--ant-color-text-quaternary)' }}
+              aria-hidden
+            />
+          )}
+        </Flex>
+      }
     >
-      <div className="relative aspect-[2/3] bg-chip">
-        {item.cover && !imgFailed ? (
-          <SmartImage
-            url={item.cover}
-            mode={imageProxyMode}
-            customProxy={customImageProxy}
-            alt={item.title}
-            className="w-full h-full object-cover"
-            onExhausted={() => setImgFailed(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-chip">
-            <svg className="w-8 h-8 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16m10-16v16M3 6a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm8 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6zm4 0a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1h-1a1 1 0 01-1-1V6z" />
-            </svg>
-          </div>
-        )}
-        {item.rating && (
-          <span className={cn('absolute top-1.5 right-1.5 tag bg-black/70 text-rating font-medium')}>
-            ★ {item.rating}
-          </span>
-        )}
-      </div>
-      <div className="p-2">
-        <div className="text-xs font-medium text-content truncate" title={item.title}>
+      <Flex vertical gap={6}>
+        <Typography.Text ellipsis={{ tooltip: item.title }} strong>
           {item.title}
-        </div>
-      </div>
-    </div>
+        </Typography.Text>
+        {item.rating && (
+          <Tag color="gold" style={{ alignSelf: 'flex-start' }}>
+            ★ {item.rating}
+          </Tag>
+        )}
+      </Flex>
+    </Card>
   );
 }

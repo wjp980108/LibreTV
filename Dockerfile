@@ -3,6 +3,7 @@ FROM node:24.22.2-alpine AS builder
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 # npm 仅用于引导安装 packageManager 指定的 pnpm，项目依赖统一由 pnpm 管理。
 RUN npm install --global "$(node -p "require('./package.json').packageManager")" \
     && pnpm install --frozen-lockfile

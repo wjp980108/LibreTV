@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, Empty, Space, Typography, Spin, Result, Flex, Progress, Card, Tag } from 'antd';
+
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client-api';
-import { cn } from '@/lib/utils';
 import type { EpgProgram } from '@/lib/types';
-import { EmptyState, ErrorState, Spinner } from './states';
 
 /**
  * EPG 节目单面板：当前节目（含播放进度条）+ 接下来节目列表 + 简介展开。
@@ -39,91 +39,158 @@ export function LiveEpgPanel({ epgUrl, tvgId }: { epgUrl?: string; tvgId?: strin
 
   if (!enabled) {
     return (
-      <EmptyState
-        variant="plain"
-        title="该频道未配置节目单数据（需来源订阅提供 EPG 地址且频道带 tvg-id）"
-        className="!py-4"
-      />
+      <Empty
+        style={{ paddingBlock: 16 }}
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={
+          <Space orientation="vertical">
+            <Typography.Text>
+              {'该频道未配置节目单数据（需来源订阅提供 EPG 地址且频道带 tvg-id）'}
+            </Typography.Text>
+          </Space>
+        }
+      ></Empty>
     );
   }
 
   if (epgQuery.isLoading) {
     return (
-      <div className="flex items-center justify-center py-6">
-        <Spinner size="sm" />
-      </div>
+      <Flex style={{ paddingBlock: 24 }} align="center" justify="center">
+        <Spin size="small" />
+      </Flex>
     );
   }
 
   if (epgQuery.isError) {
-    return <ErrorState message="节目单加载失败" onRetry={() => epgQuery.refetch()} className="!py-4" />;
+    return (
+      <Result
+        status="warning"
+        subTitle={'节目单加载失败'}
+        style={{ paddingBlock: 16 }}
+        extra={<Button onClick={() => epgQuery.refetch()}>{'重试'}</Button>}
+      />
+    );
   }
 
   const data = epgQuery.data;
   const current = data?.current;
   const upcoming: EpgProgram[] = (data?.programs ?? []).filter((p) => p.start > now).slice(0, 5);
 
-  const progress = current ? Math.min(100, Math.max(0, ((now - current.start) / (current.stop - current.start)) * 100)) : 0;
+  const progress = current
+    ? Math.min(100, Math.max(0, ((now - current.start) / (current.stop - current.start)) * 100))
+    : 0;
 
   return (
-    <div className="space-y-3">
+    <Flex vertical gap={12}>
       {current ? (
-        <div className="bg-card border border-line rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-semibold text-danger bg-danger/10 px-1.5 py-0.5 rounded-full">
-              正在播出
-            </span>
-            <span className="text-[10px] text-faint">
+        <Card size="small" style={{ marginTop: 12 }}>
+          <Flex style={{ marginBottom: 6 }} align="center" gap={8}>
+            <Tag color="error">正在播出</Tag>
+            <Typography.Text type="secondary" style={{ fontSize: '10px' }}>
               {fmtTime(current.start)} - {fmtTime(current.stop)}
-            </span>
-          </div>
-          <button
-            className="text-sm font-medium text-content w-full text-left"
+            </Typography.Text>
+          </Flex>
+          <Button
+            type="text"
+            style={{ width: '100%', textAlign: 'left' }}
             aria-expanded={expandedDesc}
             onClick={() => setExpandedDesc((v) => !v)}
           >
             {current.title}
-          </button>
+          </Button>
           {current.desc && expandedDesc && (
-            <p className="text-xs text-muted mt-1.5 leading-relaxed animate-fade-in">{current.desc}</p>
+            <Typography.Paragraph
+              type="secondary"
+              style={{
+                margin: 0,
+                fontSize: 'var(--ant-font-size-sm)',
+
+                marginTop: 6,
+                lineHeight: 1.625,
+              }}
+            >
+              {current.desc}
+            </Typography.Paragraph>
           )}
           {/* 已播进度条 */}
-          <div className="mt-2.5 h-1 rounded-full bg-chip overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-[10px] text-faint mt-1">
-            <span>{fmtTime(current.start)}</span>
-            <span>{Math.round(progress)}%</span>
-            <span>{fmtTime(current.stop)}</span>
-          </div>
-        </div>
+          <Progress percent={Math.round(progress)} showInfo={false} size="small" />
+          <Flex
+            style={{ fontSize: '10px', color: 'var(--ant-color-text-tertiary)', marginTop: 4 }}
+            justify="space-between"
+          >
+            <Typography.Text>{fmtTime(current.start)}</Typography.Text>
+            <Typography.Text>{Math.round(progress)}%</Typography.Text>
+            <Typography.Text>{fmtTime(current.stop)}</Typography.Text>
+          </Flex>
+        </Card>
       ) : (
-        <p className="text-xs text-faint text-center py-2">当前时段暂无节目数据</p>
+        <Typography.Paragraph
+          type="secondary"
+          style={{
+            margin: 0,
+            fontSize: 'var(--ant-font-size-sm)',
+
+            textAlign: 'center',
+            paddingBlock: 8,
+          }}
+        >
+          当前时段暂无节目数据
+        </Typography.Paragraph>
       )}
 
       {upcoming.length > 0 && (
-        <div>
-          <h4 className="text-xs font-semibold text-content mb-1.5">接下来</h4>
-          <ul className="space-y-1">
+        <Flex vertical>
+          <Typography.Title
+            level={4}
+            style={{
+              margin: 0,
+              fontSize: 'var(--ant-font-size-sm)',
+              fontWeight: 600,
+
+              marginBottom: 6,
+            }}
+          >
+            接下来
+          </Typography.Title>
+          <Flex
+            style={{ margin: 0, padding: 0, listStyle: 'none' }}
+            vertical
+            gap={4}
+            component="ul"
+          >
             {upcoming.map((p) => (
-              <li
+              <Flex
+                role="listitem"
+                align="center"
+                gap={8}
+                component="li"
                 key={`${p.start}-${p.title}`}
-                className={cn(
-                  'flex items-center gap-2 text-xs px-2 py-1.5 rounded-md',
-                  'text-muted hover:bg-hover transition-colors'
-                )}
+                style={{
+                  fontSize: 'var(--ant-font-size-sm)',
+                  paddingInline: 8,
+                  paddingBlock: 6,
+                  borderRadius: 'var(--ant-border-radius)',
+                  color: 'var(--ant-color-text-secondary)',
+                }}
                 title={p.desc || p.title}
               >
-                <span className="text-faint tabular-nums shrink-0">{fmtTime(p.start)}</span>
-                <span className="text-content truncate">{p.title}</span>
-              </li>
+                <Typography.Text
+                  type="secondary"
+                  style={{
+                    fontVariantNumeric: 'tabular-nums',
+                    flexShrink: 0,
+                  }}
+                >
+                  {fmtTime(p.start)}
+                </Typography.Text>
+                <Typography.Text ellipsis style={{ minWidth: 0 }}>
+                  {p.title}
+                </Typography.Text>
+              </Flex>
             ))}
-          </ul>
-        </div>
+          </Flex>
+        </Flex>
       )}
-    </div>
+    </Flex>
   );
 }

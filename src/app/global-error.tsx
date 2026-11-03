@@ -1,9 +1,9 @@
 'use client';
 
-/**
- * 根布局级错误兜底：layout 本身崩溃时启用，必须自带 <html>/<body>。
- * 此时主题脚本等均已失效，用内联样式保证基本可读。
- */
+import { Button, ConfigProvider, Flex, Layout, Result, Typography, theme } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+
+/** Root errors cannot depend on the failed root layout or its providers. */
 export default function GlobalError({
   error,
   reset,
@@ -13,40 +13,38 @@ export default function GlobalError({
 }) {
   return (
     <html lang="zh-CN">
-      <body
-        style={{
-          margin: 0,
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: '#0b101a',
-          color: '#c9d1d9',
-          fontFamily: 'system-ui, sans-serif',
-          textAlign: 'center',
-          padding: 16,
-        }}
-      >
-        <p style={{ margin: 0, fontSize: 14 }}>应用发生严重错误，请刷新页面重试。</p>
-        <button
-          onClick={reset}
-          style={{
-            padding: '6px 16px',
-            borderRadius: 6,
-            border: '1px solid #2a3441',
-            background: '#151b26',
-            color: '#c9d1d9',
-            cursor: 'pointer',
+      <body style={{ margin: 0, background: '#121312' }}>
+        <ConfigProvider
+          locale={zhCN}
+          theme={{
+            algorithm: theme.darkAlgorithm,
+            token: { colorPrimary: '#d9b878', colorBgBase: '#121312', colorTextBase: '#eeede8' },
+            components: { Button: { primaryColor: '#19170f' } },
           }}
         >
-          刷新
-        </button>
-        {/* digest 用于线上日志定位，不含敏感信息，展示无妨 */}
-        {error.digest && (
-          <p style={{ margin: 0, fontSize: 11, color: '#7a8ca6' }}>错误编号：{error.digest}</p>
-        )}
+          <Layout style={{ minHeight: '100dvh' }}>
+            <Flex
+              vertical
+              align="center"
+              justify="center"
+              style={{ minHeight: '100dvh', padding: 16 }}
+            >
+              <Result
+                status="error"
+                title="应用发生错误"
+                subTitle="请刷新页面重试。"
+                extra={
+                  <Button type="primary" onClick={reset}>
+                    刷新
+                  </Button>
+                }
+              />
+              {error.digest && (
+                <Typography.Text type="secondary">错误编号：{error.digest}</Typography.Text>
+              )}
+            </Flex>
+          </Layout>
+        </ConfigProvider>
       </body>
     </html>
   );

@@ -1,6 +1,8 @@
 # LibreTV
 
-LibreTV Next.js 迁移版：免费在线视频聚合搜索与观看平台。基于 Next.js 16（App Router）+ TypeScript 6 + Tailwind CSS 4，播放内核为 ArtPlayer + hls.js，支持亮暗双主题。
+LibreTV Next.js 迁移版：免费在线视频聚合搜索与观看平台。基于 Next.js 16（App Router）+ TypeScript 6 + Ant Design 6 + Tailwind CSS 4，播放内核为 ArtPlayer + hls.js，支持亮暗双主题。
+
+界面优先使用 Ant Design 的布局、控件、状态组件和主题 Token，Tailwind CSS 辅助间距、定位、排版与视觉微调。通用图标直接使用官方组件，播放器复用官方 SVG 资源。
 
 > 🏠 **官网**：[LibreTV 官网](https://libretv.is-an.org/)
 >

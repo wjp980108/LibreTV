@@ -1,6 +1,9 @@
 # 安装脚本按包显式许可，确保本地、CI 与 Docker 使用相同策略。
+strictPeerDependencies: true
 allowBuilds:
   esbuild: true
   unrs-resolver: true
   # 可选的 macOS 文件监听加速；开发服务器可使用非原生监听。
   fsevents: false
+patchedDependencies:
+  '@rc-component/util@1.14.0': patches/@rc-component__util@1.14.0.patch

@@ -1,8 +1,10 @@
 'use client';
 
+import { CloseOutlined } from '@ant-design/icons';
+import { Button, Drawer, Switch, Progress, Flex, Card, Layout, Typography } from 'antd';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Drawer } from './drawer';
-import { Icon } from './icon';
+
 import { useToast } from './toast';
 import { db, type DownloadTaskEntry } from '@/lib/db';
 import {
@@ -14,7 +16,6 @@ import {
 } from '@/lib/m3u8-downloader';
 import { loadDownloadSettings, saveDownloadSettings } from '@/lib/download-settings';
 import { detectSavingCapability, pickSaveTarget } from '@/lib/download-saver';
-import { Switch } from './settings-shared';
 
 /**
  * 全局下载管理器（UI 采用本站 Drawer 模式）：
@@ -57,10 +58,13 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
     void db.downloads.orderBy('createdAt').reverse().toArray().then(setTasks);
   }, []);
 
-  const updateEntry = useCallback(async (id: string, patch: Partial<DownloadTaskEntry>) => {
-    await db.downloads.update(id, { ...patch, updatedAt: Date.now() });
-    refresh();
-  }, [refresh]);
+  const updateEntry = useCallback(
+    async (id: string, patch: Partial<DownloadTaskEntry>) => {
+      await db.downloads.update(id, { ...patch, updatedAt: Date.now() });
+      refresh();
+    },
+    [refresh],
+  );
 
   // 下载设置在挂载时读取：抽屉关闭时 header / 播放页也会派发入队事件，
   // 若只在打开抽屉时才读，关闭状态下加入的任务会漏掉用户的中转偏好
@@ -82,13 +86,24 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
       // 极端情况下长任务被浏览器判定为无响应
       let lastPersistAt = 0;
       const onProgress = (p: DownloadProgress) => {
-        const status = p.status === 'done' ? 'completed' : p.status === 'error' ? 'error' : 'downloading';
-        setTasks((prev) => prev.map((t) => (t.id === entry.id ? { ...t, finished: p.current, total: p.total, status } : t)));
+        const status =
+          p.status === 'done' ? 'completed' : p.status === 'error' ? 'error' : 'downloading';
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === entry.id ? { ...t, finished: p.current, total: p.total, status } : t,
+          ),
+        );
         const now = Date.now();
         // 状态切换（完成/失败/处理中）必须立刻持久化，纯进度才节流
-        if (p.status === 'downloading' && now - lastPersistAt < PROGRESS_PERSIST_INTERVAL_MS) return;
+        if (p.status === 'downloading' && now - lastPersistAt < PROGRESS_PERSIST_INTERVAL_MS)
+          return;
         lastPersistAt = now;
-        void db.downloads.update(entry.id, { finished: p.current, total: p.total, status, updatedAt: now });
+        void db.downloads.update(entry.id, {
+          finished: p.current,
+          total: p.total,
+          status,
+          updatedAt: now,
+        });
       };
 
       const job = runDownloadJob({
@@ -103,18 +118,27 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
         proxy,
         onProgress,
         // hasTarget=false（刷新恢复/排队恢复）时目标已在手势内由「继续」按钮选好
-        target: (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget?.id === entry.id
-          ? (globalThis as unknown as { __dlSaveTarget: { target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget.target
-          : {
-              // 目标已失效（页面刷新后句柄消亡）：显式报错引导用户点「继续」重选，
-              // 绝不能静默空写——否则任务会显示完成却产出空文件
-              kind: 'memory',
-              write: async () => {
-                throw new Error('保存位置已失效，请点击「继续」重新选择');
+        target:
+          (
+            globalThis as unknown as {
+              __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget };
+            }
+          ).__dlSaveTarget?.id === entry.id
+            ? (
+                globalThis as unknown as {
+                  __dlSaveTarget: { target: import('@/lib/download-saver').SaveTarget };
+                }
+              ).__dlSaveTarget.target
+            : {
+                // 目标已失效（页面刷新后句柄消亡）：显式报错引导用户点「继续」重选，
+                // 绝不能静默空写——否则任务会显示完成却产出空文件
+                kind: 'memory',
+                write: async () => {
+                  throw new Error('保存位置已失效，请点击「继续」重新选择');
+                },
+                close: async () => {},
+                abort: async () => {},
               },
-              close: async () => {},
-              abort: async () => {},
-            },
       });
 
       void job
@@ -135,7 +159,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
     },
     // scheduleNext 刻意不进依赖：它与 startTask 相互引用，进依赖会让回调每帧重建
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toast, updateEntry, proxy]
+    [toast, updateEntry, proxy],
   );
 
   // —— 全局并发调度 ——
@@ -150,7 +174,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
         // 队列恢复的任务没有保存目标：以内存目标启动（分片已在本地，写出快）
         void startTask(
           { ...entry, format: entry.format },
-          (globalThis as { __dlSaveTarget?: { id: string } }).__dlSaveTarget?.id === entry.id
+          (globalThis as { __dlSaveTarget?: { id: string } }).__dlSaveTarget?.id === entry.id,
         );
       }
     })();
@@ -187,7 +211,11 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
         // 用户手势内预选保存目标（FS Access 弹窗必须在手势内）
         try {
           const target = await pickSaveTarget(`${detail.title}.${format.toLowerCase()}`);
-          (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget = {
+          (
+            globalThis as unknown as {
+              __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget };
+            }
+          ).__dlSaveTarget = {
             id,
             target,
           };
@@ -224,10 +252,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
   const onToggleProxy = (next: boolean) => {
     // 以落库结果为准回写 state：存储不可用（隐私模式）时 UI 不能假装已保存
     setProxy(saveDownloadSettings({ proxy: next }).proxy);
-    toast(
-      next ? '已开启下载中转，新任务经服务器转发' : '已关闭下载中转，新任务直连源站',
-      'info'
-    );
+    toast(next ? '已开启下载中转，新任务经服务器转发' : '已关闭下载中转，新任务直连源站', 'info');
   };
 
   const onPauseResume = async (entry: DownloadTaskEntry) => {
@@ -241,7 +266,11 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
       // 恢复：需要用户手势内重选保存目标（浏览器限制）
       try {
         const target = await pickSaveTarget(`${entry.title}.${entry.format.toLowerCase()}`);
-        (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget = {
+        (
+          globalThis as unknown as {
+            __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget };
+          }
+        ).__dlSaveTarget = {
           id: entry.id,
           target,
         };
@@ -267,7 +296,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
       entry.status === 'completed' || entry.status === 'error'
         ? `《${entry.title}》已删除下载记录`
         : `《${entry.title}》已取消下载`,
-      'info'
+      'info',
     );
   };
 
@@ -280,78 +309,140 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
   };
 
   return (
-    <Drawer open={isOpen} onClose={onClose} title="下载管理" width="max-w-lg">
-      <div className="space-y-3">
-        <div className="card p-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-content">经服务器中转下载</p>
-            <p className="text-xs text-faint">
-              直连被跨域 / 防盗链 / 混合内容拦下时开启：整集流量（含分片与密钥）经服务器转发，
-              带宽由部署者承担。仅对之后开始的任务生效。
-            </p>
-          </div>
-          <Switch checked={proxy} onChange={onToggleProxy} label="经服务器中转下载" />
-        </div>
-        <p className="text-xs text-faint">
-          保存能力：{capability === 'fs-access' ? '磁盘直写（边下边存）' : '内存聚合（完成后浏览器下载）'}
-          {chunkCache ? ' · 支持断点续传' : ' · 当前环境无断点缓存（需 HTTPS 访问）'} ·
-          同时进行 {Math.min(running.current.size, MAX_CONCURRENT_DOWNLOADS)}/{MAX_CONCURRENT_DOWNLOADS} 个任务
-        </p>
-        {tasks.length === 0 && (
-          <div className="py-10 text-center text-sm text-faint">
-            暂无下载任务。在播放页点击「下载本集」开始。
-          </div>
-        )}
-        {tasks.map((t) => (
-          <div key={t.id} className="card p-3 space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm text-content truncate">{t.title}</p>
-                <p className="text-xs text-faint">
-                  {t.format.toUpperCase()} · {statusLabel[t.status]}
-                  {t.status === 'downloading' && t.total > 0 ? ` · ${t.finished}/${t.total} 分片` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {t.status === 'downloading' && (
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
-                    onClick={() => void onPauseResume(t)}
-                  >
-                    暂停
-                  </button>
-                )}
-                {(t.status === 'paused' || t.status === 'waiting' || t.status === 'error') && (
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
-                    onClick={() => void onPauseResume(t)}
-                  >
-                    继续
-                  </button>
-                )}
-                <button
-                  type="button"
-                  aria-label="删除下载任务"
-                  className="p-1.5 rounded bg-chip hover:bg-hover text-content transition-colors"
-                  onClick={() => void onCancel(t)}
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      title="下载管理"
+      destroyOnHidden
+      closable={{ placement: 'end' }}
+      styles={{
+        body: { display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' },
+      }}
+      size={512}
+    >
+      <Layout.Content
+        style={{
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          padding: 16,
+          flex: '1 1 0%',
+        }}
+      >
+        <Flex vertical gap={12}>
+          <Card size="small">
+            <Flex align="flex-start" justify="space-between" gap={12}>
+              <Flex vertical style={{ minWidth: 0 }}>
+                <Typography.Paragraph style={{ margin: 0, fontSize: 'var(--ant-font-size)' }}>
+                  经服务器中转下载
+                </Typography.Paragraph>
+                <Typography.Paragraph
+                  type="secondary"
+                  style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
                 >
-                  <Icon name="close" className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            {(t.status === 'downloading' || t.status === 'paused' || t.status === 'completed') && t.total > 0 && (
-              <div className="h-1.5 rounded-full bg-chip overflow-hidden">
-                <div
-                  className="h-full bg-accent transition-all"
-                  style={{ width: `${t.total > 0 ? Math.min(100, Math.round((t.finished / t.total) * 100)) : 0}%` }}
-                />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                  直连被跨域 / 防盗链 / 混合内容拦下时开启：整集流量（含分片与密钥）经服务器转发，
+                  带宽由部署者承担。仅对之后开始的任务生效。
+                </Typography.Paragraph>
+              </Flex>
+              <Switch checked={proxy} onChange={onToggleProxy} aria-label="经服务器中转下载" />
+            </Flex>
+          </Card>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+          >
+            保存能力：
+            {capability === 'fs-access' ? '磁盘直写（边下边存）' : '内存聚合（完成后浏览器下载）'}
+            {chunkCache ? ' · 支持断点续传' : ' · 当前环境无断点缓存（需 HTTPS 访问）'} · 同时进行{' '}
+            {Math.min(running.current.size, MAX_CONCURRENT_DOWNLOADS)}/{MAX_CONCURRENT_DOWNLOADS}{' '}
+            个任务
+          </Typography.Paragraph>
+          {tasks.length === 0 && (
+            <Typography.Text
+              type="secondary"
+              style={{
+                paddingBlock: 40,
+                textAlign: 'center',
+                fontSize: 'var(--ant-font-size)',
+              }}
+            >
+              暂无下载任务。在播放页点击「下载本集」开始。
+            </Typography.Text>
+          )}
+          {tasks.map((t) => (
+            <Card key={t.id} size="small">
+              <Flex vertical gap={8}>
+                <Flex align="flex-start" justify="space-between" gap={8}>
+                  <Flex vertical style={{ minWidth: 0 }}>
+                    <Typography.Paragraph
+                      ellipsis
+                      style={{
+                        margin: 0,
+                        fontSize: 'var(--ant-font-size)',
+
+                        minWidth: 0,
+                      }}
+                    >
+                      {t.title}
+                    </Typography.Paragraph>
+                    <Typography.Paragraph
+                      type="secondary"
+                      style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+                    >
+                      {t.format.toUpperCase()} · {statusLabel[t.status]}
+                      {t.status === 'downloading' && t.total > 0
+                        ? ` · ${t.finished}/${t.total} 分片`
+                        : ''}
+                    </Typography.Paragraph>
+                  </Flex>
+                  <Flex style={{ flexShrink: 0 }} align="center" gap={4}>
+                    {t.status === 'downloading' && (
+                      <Button
+                        type="text"
+                        htmlType="button"
+
+                        onClick={() => void onPauseResume(t)}
+                      >
+                        暂停
+                      </Button>
+                    )}
+                    {(t.status === 'paused' || t.status === 'waiting' || t.status === 'error') && (
+                      <Button
+                        type="text"
+                        htmlType="button"
+
+                        onClick={() => void onPauseResume(t)}
+                      >
+                        继续
+                      </Button>
+                    )}
+                    <Button
+                      type="text"
+                      htmlType="button"
+                      aria-label="删除下载任务"
+
+                      onClick={() => void onCancel(t)}
+                    >
+                      <CloseOutlined style={{ fontSize: 16 }} aria-hidden />
+                    </Button>
+                  </Flex>
+                </Flex>
+                {(t.status === 'downloading' ||
+                  t.status === 'paused' ||
+                  t.status === 'completed') &&
+                  t.total > 0 && (
+                    <Progress
+                      percent={Math.min(100, Math.round((t.finished / t.total) * 100))}
+                      showInfo={false}
+                      size="small"
+                      status={t.status === 'completed' ? 'success' : 'normal'}
+                    />
+                  )}
+              </Flex>
+            </Card>
+          ))}
+        </Flex>
+      </Layout.Content>
     </Drawer>
   );
 }
@@ -376,4 +467,3 @@ export function GlobalDownloadManager() {
   }, []);
   return <DownloadManager isOpen={open} onClose={() => setOpen(false)} />;
 }
-

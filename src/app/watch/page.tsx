@@ -1,5 +1,22 @@
 'use client';
 
+import { ArrowDownOutlined, LeftOutlined, HomeOutlined } from '@ant-design/icons';
+import {
+  Button,
+  Checkbox,
+  Spin,
+  Empty,
+  Space,
+  Typography,
+  Flex,
+  Row,
+  Col,
+  Layout,
+  Card,
+  Grid,
+  Badge,
+} from 'antd';
+
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -10,19 +27,18 @@ import { api } from '@/lib/client-api';
 const PlayerShell = dynamic(() => import('@/components/player-shell').then((m) => m.PlayerShell), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
+    <Flex style={{ width: '100%', height: '100%' }} align="center" justify="center">
+      <Spin size="large" />
+    </Flex>
   ),
 });
-import { EmptyState, LoadingState, Spinner } from '@/components/states';
 import { SwitchSourceModal } from '@/components/switch-source';
 import { SkipMarkPanel } from '@/components/skip-mark-panel';
 import { skipMarkKey, validateSegment, type SkipSegment } from '@/lib/skip-marks';
 import type { PlayerSkipApi } from '@/components/player-shell';
 import { useToast } from '@/components/toast';
 import { enqueueDownload } from '@/components/download-manager';
-import { Icon } from '@/components/icon';
+
 import { useAuth } from '@/components/auth';
 import { resolveSource, useAppStore } from '@/lib/store';
 import { qualityKey } from '@/lib/quality';
@@ -34,7 +50,6 @@ import {
   upsertHistory,
   db,
 } from '@/lib/db';
-import { cn } from '@/lib/utils';
 
 /**
  * 播放页（唯一入口，替代旧版 watch.html → player.html 跳转链）。
@@ -50,6 +65,8 @@ export default function WatchPage() {
 }
 
 function WatchContent() {
+  const screens = Grid.useBreakpoint();
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const store = useAppStore();
@@ -134,7 +151,7 @@ function WatchContent() {
   const skipMarkFallback = `${sourceKey}:${vodId || currentUrl}`;
   const markKey = useMemo(
     () => skipMarkKey(videoTitle, skipMarkFallback),
-    [videoTitle, skipMarkFallback]
+    [videoTitle, skipMarkFallback],
   );
   const skipMark = store.skipMarks[markKey];
   const markedCount = skipMark?.segments.length ?? 0;
@@ -152,7 +169,7 @@ function WatchContent() {
       sp.delete('position');
       router.replace(`/watch?${sp.toString()}`, { scroll: false });
     },
-    [router, searchParams, episodes, directUrl]
+    [router, searchParams, episodes, directUrl],
   );
 
   // 进度恢复优先级：URL position 参数 > IndexedDB 记录
@@ -193,14 +210,17 @@ function WatchContent() {
         updateHistoryProgress(sourceKey, vodId || currentUrl, position, duration).catch(() => {});
       }
     },
-    [sourceKey, vodId, currentIndex, currentUrl]
+    [sourceKey, vodId, currentIndex, currentUrl],
   );
 
   // 自动连播的 800ms 延迟切集要在卸载时取消，避免离开页面后跳转
   const autoNextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (autoNextTimer.current) clearTimeout(autoNextTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (autoNextTimer.current) clearTimeout(autoNextTimer.current);
+    },
+    [],
+  );
 
   const handleEnded = useCallback(() => {
     if (vodId) clearProgress(sourceKey, vodId, currentIndex).catch(() => {});
@@ -221,7 +241,11 @@ function WatchContent() {
       }
       useAppStore.getState().setSkipMark(markKey, [...existing, segment]);
       const label =
-        segment.type === 'opening' ? '片头结束' : segment.type === 'ending' ? '片尾开始' : '中段片段';
+        segment.type === 'opening'
+          ? '片头结束'
+          : segment.type === 'ending'
+            ? '片尾开始'
+            : '中段片段';
       // 中段命中时的表现取决于全局「自动跳过片段」，记完就说清楚，避免"标了却没反应"
       const hint =
         segment.type === 'middle'
@@ -231,7 +255,7 @@ function WatchContent() {
           : '';
       toast(`已记录${label}${hint}`, 'success');
     },
-    [markKey, toast]
+    [markKey, toast],
   );
 
   // Alt+←/→ 集数切换快捷键
@@ -250,46 +274,97 @@ function WatchContent() {
     return () => document.removeEventListener('keydown', handler);
   }, [currentIndex, episodes.length, goEpisode]);
 
-  const orderedEpisodes = reversed ? [...episodes].map((_, i) => episodes.length - 1 - i) : episodes.map((_, i) => i);
+  const orderedEpisodes = reversed
+    ? [...episodes].map((_, i) => episodes.length - 1 - i)
+    : episodes.map((_, i) => i);
 
   if (!verified) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-faint text-sm">等待访问验证...</p>
-      </div>
+      <Flex style={{ minHeight: '100dvh' }} align="center" justify="center">
+        <Typography.Paragraph
+          type="secondary"
+          style={{ margin: 0, fontSize: 'var(--ant-font-size)' }}
+        >
+          等待访问验证...
+        </Typography.Paragraph>
+      </Flex>
     );
   }
 
   if (!source) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-content font-medium mb-2">点播源不存在</h1>
-          <p className="text-sm text-muted mb-4">
+      <Flex style={{ minHeight: '100dvh', paddingInline: 16 }} align="center" justify="center">
+        <Flex vertical style={{ textAlign: 'center', maxWidth: 448 }}>
+          <Typography.Title level={1} style={{ margin: 0, fontWeight: 500, marginBottom: 8 }}>
+            点播源不存在
+          </Typography.Title>
+          <Typography.Paragraph
+            type="secondary"
+            style={{
+              margin: 0,
+              fontSize: 'var(--ant-font-size)',
+
+              marginBottom: 16,
+            }}
+          >
             该视频来自点播源「{sourceKey}」，但它可能已被删除。请在设置中重新添加后重试。
-          </p>
-          <Link href="/" className="btn-primary">返回首页</Link>
-        </div>
-      </div>
+          </Typography.Paragraph>
+          <Button type="primary" href="/">
+            返回首页
+          </Button>
+        </Flex>
+      </Flex>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
+    <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
+      <Layout.Header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          height: 64,
+          paddingInline: 16,
+          background: 'color-mix(in srgb, var(--ant-color-bg-container) 96%, transparent)',
+          borderBottom: '1px solid var(--ant-color-border-secondary)',
+          lineHeight: 'normal',
+        }}
+      >
+        <Flex
+          style={{ maxWidth: 1280, marginInline: 'auto', height: '100%' }}
+          align="center"
+          gap={12}
+        >
           <BackButton />
           <HomeButton />
-          <div className="min-w-0">
-            <h1 className="text-sm font-medium text-content truncate">{videoTitle}</h1>
-            <p className="text-xs text-faint">
+          <Flex vertical style={{ minWidth: 0 }}>
+            <Typography.Title
+              level={1}
+              ellipsis
+              style={{
+                margin: 0,
+                fontSize: 'var(--ant-font-size)',
+                fontWeight: 500,
+
+                minWidth: 0,
+              }}
+            >
+              {videoTitle}
+            </Typography.Title>
+            <Typography.Paragraph
+              type="secondary"
+              style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+            >
               {source.name}
               {episodes.length > 0 && ` · 第 ${currentIndex + 1}/${episodes.length} 集`}
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              className="btn-ghost btn-sm"
+            </Typography.Paragraph>
+          </Flex>
+          <Flex style={{ marginInlineStart: 'auto' }} align="center" gap={8}>
+            <Button
+              type="default"
+              size="small"
+
               onClick={() => {
                 if (!currentUrl) return;
                 enqueueDownload({
@@ -303,172 +378,244 @@ function WatchContent() {
               }}
             >
               下载本集
-            </button>
-            <button className="btn-ghost btn-sm" onClick={() => setSwitchOpen(true)}>
+            </Button>
+            <Button type="default" size="small" onClick={() => setSwitchOpen(true)}>
               切换资源
-            </button>
-          </div>
-        </div>
-      </header>
+            </Button>
+          </Flex>
+        </Flex>
+      </Layout.Header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-          <div>
-            <div ref={playerFrameRef} className="aspect-video bg-black rounded-lg overflow-hidden">
-              {currentUrl ? (
-                <PlayerShell
-                  url={currentUrl}
-                  title={videoTitle}
-                  adFilter={store.adFilter}
-                  autoplayNext={store.autoplayNext}
-                  skipMark={skipMark}
-                  autoSkipSegments={store.autoSkipSegments}
-                  pendingStart={pendingStart}
-                  onPendingStart={setPendingStart}
-                  onPlayerApi={(api) => { playerApiRef.current = api; }}
-                  onRecordSegment={handleRecordSegment}
-                  episodeKey={`${sourceKey}:${vodId}:${currentIndex}`}
-                  nextUrl={currentIndex + 1 < episodes.length ? episodes[currentIndex + 1] : undefined}
-                  nextEpisodeKey={currentIndex + 1 < episodes.length ? `${sourceKey}:${vodId}:${currentIndex + 1}` : undefined}
-                  getRestorePosition={getRestorePosition}
-                  onTimeUpdate={handleProgress}
-                  onPause={handleProgress}
-                  onEnded={handleEnded}
-                  hasPrevEpisode={currentIndex > 0}
-                  hasNextEpisode={episodes.length > 0 && currentIndex < episodes.length - 1}
-                  onPrevEpisode={() => goEpisode(currentIndex - 1)}
-                  onNextEpisode={() => goEpisode(currentIndex + 1)}
-                  onQuality={(height) => {
-                    // 播放实测是最权威的画质来源，回写后搜索列表里该「源 + 影片」直接显示
-                    if (!sourceKey || !vodId) return;
-                    useAppStore.getState().setQuality({
-                      [qualityKey(sourceKey, vodId)]: { height, from: 'play', timestamp: Date.now() },
-                    });
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  {detailQuery.isLoading ? (
-                    <Spinner size="lg" />
-                  ) : (
-                    <p className="text-faint text-sm">
-                      {detailQuery.isError ? '视频加载失败，请尝试其他资源' : '无可用播放地址'}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+      <Layout.Content style={{ maxWidth: 1280, width: '100%', marginInline: 'auto', padding: 16 }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} lg={17} xl={18} style={{ minWidth: 0 }}>
+            <Flex vertical>
+              <Flex
+                ref={playerFrameRef}
+                style={{
+                  aspectRatio: '16/9',
+                  backgroundColor: '#000',
+                  borderRadius: 'var(--ant-border-radius-lg)',
+                  overflow: 'hidden',
+                }}
+              >
+                {currentUrl ? (
+                  <PlayerShell
+                    url={currentUrl}
+                    title={videoTitle}
+                    adFilter={store.adFilter}
+                    autoplayNext={store.autoplayNext}
+                    skipMark={skipMark}
+                    autoSkipSegments={store.autoSkipSegments}
+                    pendingStart={pendingStart}
+                    onPendingStart={setPendingStart}
+                    onPlayerApi={(api) => {
+                      playerApiRef.current = api;
+                    }}
+                    onRecordSegment={handleRecordSegment}
+                    episodeKey={`${sourceKey}:${vodId}:${currentIndex}`}
+                    nextUrl={
+                      currentIndex + 1 < episodes.length ? episodes[currentIndex + 1] : undefined
+                    }
+                    nextEpisodeKey={
+                      currentIndex + 1 < episodes.length
+                        ? `${sourceKey}:${vodId}:${currentIndex + 1}`
+                        : undefined
+                    }
+                    getRestorePosition={getRestorePosition}
+                    onTimeUpdate={handleProgress}
+                    onPause={handleProgress}
+                    onEnded={handleEnded}
+                    hasPrevEpisode={currentIndex > 0}
+                    hasNextEpisode={episodes.length > 0 && currentIndex < episodes.length - 1}
+                    onPrevEpisode={() => goEpisode(currentIndex - 1)}
+                    onNextEpisode={() => goEpisode(currentIndex + 1)}
+                    onQuality={(height) => {
+                      // 播放实测是最权威的画质来源，回写后搜索列表里该「源 + 影片」直接显示
+                      if (!sourceKey || !vodId) return;
+                      useAppStore.getState().setQuality({
+                        [qualityKey(sourceKey, vodId)]: {
+                          height,
+                          from: 'play',
+                          timestamp: Date.now(),
+                        },
+                      });
+                    }}
+                  />
+                ) : (
+                  <Flex style={{ width: '100%', height: '100%' }} align="center" justify="center">
+                    {detailQuery.isLoading ? (
+                      <Spin size="large" />
+                    ) : (
+                      <Typography.Paragraph
+                        type="secondary"
+                        style={{
+                          margin: 0,
 
-            {/* 操作栏 */}
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              <button
-                className="btn-ghost btn-sm"
-                disabled={currentIndex <= 0}
-                onClick={() => goEpisode(currentIndex - 1)}
-              >
-                上一集
-              </button>
-              <button
-                className="btn-ghost btn-sm"
-                disabled={episodes.length === 0 || currentIndex >= episodes.length - 1}
-                onClick={() => goEpisode(currentIndex + 1)}
-              >
-                下一集
-              </button>
-              <button
-                className={cn('btn-ghost btn-sm', skipPanelOpen && 'bg-chip text-content')}
-                aria-expanded={skipPanelOpen}
-                aria-haspopup="dialog"
-                onClick={() => setSkipPanelOpen((v) => !v)}
-                title={
-                  markedCount > 0
-                    ? `本剧已标记 ${markedCount} 段${skipMark?.enabled === false ? '（本剧跳过已关闭）' : ''}`
-                    : '标记片头 / 中段 / 片尾，供本剧各集自动跳过'
-                }
-              >
-                跳过标记{markedCount > 0 ? ` (${markedCount})` : ''}
-                {markedCount > 0 && skipMark?.enabled === false && (
-                  <span className="ml-1 inline-block size-1.5 rounded-full bg-faint" aria-label="本剧跳过已关闭" />
+                          fontSize: 'var(--ant-font-size)',
+                        }}
+                      >
+                        {detailQuery.isError ? '视频加载失败，请尝试其他资源' : '无可用播放地址'}
+                      </Typography.Paragraph>
+                    )}
+                  </Flex>
                 )}
-              </button>
-              <label className="flex items-center gap-1.5 text-xs text-muted ml-auto cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5 accent-[#2563eb]"
+              </Flex>
+
+              {/* 操作栏 */}
+              <Flex style={{ marginTop: 12 }} wrap align="center" gap={8}>
+                <Button
+                  type="default"
+                  size="small"
+
+                  disabled={currentIndex <= 0}
+                  onClick={() => goEpisode(currentIndex - 1)}
+                >
+                  上一集
+                </Button>
+                <Button
+                  type="default"
+                  size="small"
+
+                  disabled={episodes.length === 0 || currentIndex >= episodes.length - 1}
+                  onClick={() => goEpisode(currentIndex + 1)}
+                >
+                  下一集
+                </Button>
+                <Button
+                  type={skipPanelOpen ? 'primary' : 'default'}
+                  size="small"
+
+                  aria-expanded={skipPanelOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => setSkipPanelOpen((v) => !v)}
+                  title={
+                    markedCount > 0
+                      ? `本剧已标记 ${markedCount} 段${skipMark?.enabled === false ? '（本剧跳过已关闭）' : ''}`
+                      : '标记片头 / 中段 / 片尾，供本剧各集自动跳过'
+                  }
+                >
+                  跳过标记{markedCount > 0 ? ` (${markedCount})` : ''}
+                  {markedCount > 0 && skipMark?.enabled === false && (
+                    <Badge color="var(--ant-color-text-tertiary)" aria-label="本剧跳过已关闭" />
+                  )}
+                </Button>
+                <Checkbox
+                  style={{
+                    fontSize: 'var(--ant-font-size-sm)',
+                    color: 'var(--ant-color-text-secondary)',
+                    marginInlineStart: 'auto',
+                    cursor: 'pointer',
+                  }}
                   checked={store.autoplayNext}
                   onChange={(e) => store.updateSettings({ autoplayNext: e.target.checked })}
-                />
-                自动连播
-              </label>
-            </div>
+                >
+                  自动连播
+                </Checkbox>
+              </Flex>
 
-            <SkipMarkPanel
-              open={skipPanelOpen}
-              onClose={() => setSkipPanelOpen(false)}
-              markKey={markKey}
-              pendingStart={pendingStart}
-              onPendingStart={setPendingStart}
-              mobileMaxHeight={sheetMaxHeight}
-              getPlayerClock={() => {
-                const api = playerApiRef.current;
-                if (!api) return null;
-                return {
-                  currentTime: api.getCurrentTime(),
-                  duration: api.getDuration(),
-                  seek: (s) => api.seek(s),
-                  pause: () => api.pause(),
-                  isPaused: () => api.isPaused(),
-                };
-              }}
-            />
-          </div>
+              <SkipMarkPanel
+                open={skipPanelOpen}
+                onClose={() => setSkipPanelOpen(false)}
+                markKey={markKey}
+                pendingStart={pendingStart}
+                onPendingStart={setPendingStart}
+                mobileMaxHeight={sheetMaxHeight}
+                getPlayerClock={() => {
+                  const api = playerApiRef.current;
+                  if (!api) return null;
+                  return {
+                    currentTime: api.getCurrentTime(),
+                    duration: api.getDuration(),
+                    seek: (s) => api.seek(s),
+                    pause: () => api.pause(),
+                    isPaused: () => api.isPaused(),
+                  };
+                }}
+              />
+            </Flex>
+          </Col>
 
           {/* 剧集侧栏 */}
-          <aside className="bg-surface-raised rounded-lg p-3 h-fit">
-            <div className="flex items-center justify-between gap-2 mb-2.5">
-              <h2 className="text-sm font-semibold text-content">
-                剧集列表{episodes.length > 0 && `（${episodes.length}）`}
-              </h2>
-              {/* 排列开关紧贴它所作用的列表：放在这里才看得出它管的是这一栏的顺序 */}
-              {episodes.length > 1 && (
-                <button
-                  className="btn-ghost btn-sm shrink-0"
-                  onClick={() => setReversed((v) => !v)}
-                  aria-label={reversed ? '切换为正序排列' : '切换为倒序排列'}
-                  title="调整剧集列表的排列顺序"
+          <Col xs={24} lg={7} xl={6} style={{ minWidth: 0 }}>
+            <Card size="small">
+              <Flex style={{ marginBottom: 10 }} align="center" justify="space-between" gap={8}>
+                <Typography.Title
+                  level={2}
+                  style={{ margin: 0, fontSize: 'var(--ant-font-size)', fontWeight: 600 }}
                 >
-                  <Icon
-                    name="arrowDown"
-                    className={cn('w-3.5 h-3.5 transition-transform', reversed && 'rotate-180')}
-                  />
-                  {reversed ? '正序排列' : '倒序排列'}
-                </button>
-              )}
-            </div>
-            {episodes.length === 0 ? (
-              detailQuery.isLoading ? (
-                <LoadingState />
+                  剧集列表{episodes.length > 0 && `（${episodes.length}）`}
+                </Typography.Title>
+                {/* 排列开关紧贴它所作用的列表：放在这里才看得出它管的是这一栏的顺序 */}
+                {episodes.length > 1 && (
+                  <Button
+                    style={{ flexShrink: 0 }}
+                    type="default"
+                    size="small"
+
+                    onClick={() => setReversed((v) => !v)}
+                    aria-label={reversed ? '切换为正序排列' : '切换为倒序排列'}
+                    title="调整剧集列表的排列顺序"
+                  >
+                    <ArrowDownOutlined
+                      style={{ fontSize: 14, ...(reversed ? { transform: 'rotate(180deg)' } : {}) }}
+                      aria-hidden
+                    />
+                    {reversed ? '正序排列' : '倒序排列'}
+                  </Button>
+                )}
+              </Flex>
+              {episodes.length === 0 ? (
+                detailQuery.isLoading ? (
+                  <Spin description={undefined}>
+                    <Flex style={{ minHeight: 112 }} />
+                  </Spin>
+                ) : (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      <Space orientation="vertical">
+                        <Typography.Text>
+                          {detailQuery.isError ? '获取剧集失败' : '暂无剧集信息'}
+                        </Typography.Text>
+                      </Space>
+                    }
+                  ></Empty>
+                )
               ) : (
-                <EmptyState variant="plain" title={detailQuery.isError ? '获取剧集失败' : '暂无剧集信息'} />
-              )
-            ) : (
-              <div className="grid grid-cols-5 lg:grid-cols-4 gap-1.5 max-h-[65vh] overflow-y-auto scrollbar-thin pr-1">
-                {orderedEpisodes.map((realIndex) => (
-                  <EpisodeButton
-                    key={realIndex}
-                    index={realIndex}
-                    active={realIndex === currentIndex}
-                    onClick={() => goEpisode(realIndex)}
-                  />
-                ))}
-              </div>
-            )}
-            <p className="hidden md:block text-[10px] text-faint mt-3 leading-relaxed">
-              快捷键：空格 播放/暂停 · ←/→ 快退/快进 5s · ↑/↓ 音量 · F 全屏 · Alt+←/→ 切换集数
-            </p>
-          </aside>
-        </div>
-      </main>
+                <Row
+                  style={{ maxHeight: '65vh', overflowY: 'auto', paddingInlineEnd: 4 }}
+                  gutter={[6, 6]}
+                >
+                  {orderedEpisodes.map((realIndex) => (
+                    <Col key={realIndex} xs={{ flex: '0 0 20%' }} lg={{ flex: '0 0 25%' }}>
+                      <EpisodeButton
+                        index={realIndex}
+                        active={realIndex === currentIndex}
+                        onClick={() => goEpisode(realIndex)}
+                      />
+                    </Col>
+                  ))}
+                </Row>
+              )}
+              <Typography.Paragraph
+                type="secondary"
+                style={{
+                  margin: 0,
+                  display: 'none',
+                  fontSize: '10px',
+
+                  marginTop: 12,
+                  lineHeight: 1.625,
+                  ...(screens.md ? { display: 'block' } : {}),
+                }}
+              >
+                快捷键：空格 播放/暂停 · ←/→ 快退/快进 5s · ↑/↓ 音量 · F 全屏 · Alt+←/→ 切换集数
+              </Typography.Paragraph>
+            </Card>
+          </Col>
+        </Row>
+      </Layout.Content>
 
       {switchOpen && (
         <SwitchSourceModal
@@ -479,12 +626,20 @@ function WatchContent() {
           onClose={() => setSwitchOpen(false)}
         />
       )}
-    </div>
+    </Layout>
   );
 }
 
 /** 集数按钮：激活时自动滚动进可视区（长剧列表） */
-function EpisodeButton({ index, active, onClick }: { index: number; active: boolean; onClick: () => void }) {
+function EpisodeButton({
+  index,
+  active,
+  onClick,
+}: {
+  index: number;
+  active: boolean;
+  onClick: () => void;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -492,31 +647,33 @@ function EpisodeButton({ index, active, onClick }: { index: number; active: bool
   }, [active]);
 
   return (
-    <button
+    <Button
+      type={active ? 'primary' : 'default'}
+      size="small"
       ref={ref}
-      className={cn('btn btn-sm !px-1', active ? 'episode-active' : 'btn-ghost')}
+      block
+
       onClick={onClick}
     >
       {index + 1}
-    </button>
+    </Button>
   );
 }
 
 function BackButton() {
   const router = useRouter();
   return (
-    <button
-      className="p-2 -ml-2 rounded-md text-muted hover:text-content hover:bg-hover transition-colors"
+    <Button
+      type="text"
+      style={{ marginInlineStart: -8 }}
       onClick={() => {
         if (window.history.length > 1) router.back();
         else router.push('/');
       }}
       aria-label="返回"
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-    </button>
+      <LeftOutlined style={{ fontSize: 20 }} aria-hidden />
+    </Button>
   );
 }
 
@@ -525,11 +682,15 @@ function HomeButton() {
   return (
     <Link
       href="/"
-      className="p-2 rounded-md text-muted hover:text-content hover:bg-hover transition-colors"
+      style={{
+        padding: 8,
+        borderRadius: 'var(--ant-border-radius)',
+        color: 'var(--ant-color-text-secondary)',
+      }}
       aria-label="回首页"
       title="回首页"
     >
-      <Icon name="home" className="w-5 h-5" />
+      <HomeOutlined style={{ fontSize: 20 }} aria-hidden />
     </Link>
   );
 }

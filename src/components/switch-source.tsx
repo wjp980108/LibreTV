@@ -1,17 +1,33 @@
 'use client';
 
+import { LinkOutlined } from '@ant-design/icons';
+import {
+  Button,
+  Modal,
+  Tabs,
+  Badge,
+  Spin,
+  Empty,
+  Space,
+  Typography,
+  Flex,
+  Row,
+  Col,
+  Layout,
+  Tag,
+  Statistic,
+} from 'antd';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client-api';
 import type { SourceConfig, SearchResultItem } from '@/lib/types';
-import { buildWatchUrl, cn } from '@/lib/utils';
+import { buildWatchUrl } from '@/lib/utils';
 import { useAppStore, resolveSource } from '@/lib/store';
 import { qualityKey, qualityLabel } from '@/lib/quality';
 import { useToast } from './toast';
-import { Icon } from './icon';
+
 import { SmartImage } from './smart-image';
-import { EmptyState, LoadingState } from './states';
-import { useFocusTrap } from './use-focus-trap';
 import { QualityBadge } from './quality-badge';
 import { useQualityProbe } from './use-quality-probe';
 
@@ -62,13 +78,10 @@ export function SwitchSourceModal({
   const [retestingKey, setRetestingKey] = useState('');
   /** 重测的在途请求：换片重搜/关闭面板时中止，避免卸载后 setState */
   const retestAbortRef = useRef<AbortController | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const tabBarRef = useRef<HTMLDivElement>(null);
+
   /** Tab 栏左右是否还有内容：没有渐隐提示，用户不知道右边还藏着源 */
-  const [tabEdges, setTabEdges] = useState({ left: false, right: false });
 
   // 打开时把焦点移入弹窗、Tab 圈闭在弹窗内、关闭后归还焦点
-  useFocusTrap(true, panelRef);
 
   const sources = useMemo(() => {
     // selectedKeys 可能含历史残留的重复 key：按 key 去重，避免同源重复搜索/测速与 React key 撞车
@@ -83,23 +96,6 @@ export function SwitchSourceModal({
   }, [store]);
 
   useEffect(() => {
-    // 弹窗打开期间锁定背景滚动；Esc 关闭（与其它弹窗一致）
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
-  useEffect(() => {
     // 关闭弹窗时中止在途请求：否则 N 个源的搜索 + N 个详情测速会继续占用网络与后端
     const controller = new AbortController();
     let cancelled = false;
@@ -108,7 +104,9 @@ export function SwitchSourceModal({
       // 1) 并行搜索所有选中源
       setPhase('searching');
       try {
-        const { list } = await api.search(currentTitle, sources, store.yellowFilter, { signal: controller.signal });
+        const { list } = await api.search(currentTitle, sources, store.yellowFilter, {
+          signal: controller.signal,
+        });
         if (cancelled) return;
 
         // 匹配口径：优先完全同名，其次名称以标题开头（兼容「小偷 HD」「小偷[电影解说]」这类修饰名）。
@@ -134,7 +132,7 @@ export function SwitchSourceModal({
             c.ms = r.ms;
             c.episodes = r.detail?.episodes.length ?? 0;
             c.error = r.ok ? undefined : r.error;
-          })
+          }),
         );
         if (cancelled) return;
         setCandidates(matched);
@@ -168,14 +166,18 @@ export function SwitchSourceModal({
     if (targets.length > 0) probe(targets);
   }, [phase, candidates, probe]);
 
-  const sorted = useMemo(() => [...candidates].sort((a, b) => {
-    const aCurrent = isCurrentCandidate(a, currentSourceKey, currentVodId);
-    const bCurrent = isCurrentCandidate(b, currentSourceKey, currentVodId);
-    if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
-    const msA = a.ok ? a.ms ?? 99_999 : 99_999;
-    const msB = b.ok ? b.ms ?? 99_999 : 99_999;
-    return msA - msB;
-  }), [candidates, currentSourceKey, currentVodId]);
+  const sorted = useMemo(
+    () =>
+      [...candidates].sort((a, b) => {
+        const aCurrent = isCurrentCandidate(a, currentSourceKey, currentVodId);
+        const bCurrent = isCurrentCandidate(b, currentSourceKey, currentVodId);
+        if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+        const msA = a.ok ? (a.ms ?? 99_999) : 99_999;
+        const msB = b.ok ? (b.ms ?? 99_999) : 99_999;
+        return msA - msB;
+      }),
+    [candidates, currentSourceKey, currentVodId],
+  );
 
   /**
    * 面板展示的源：优先用户点过的那个；还没点过时先落到「第一个可切换的源」——
@@ -186,33 +188,6 @@ export function SwitchSourceModal({
     sorted.find((c) => !isCurrentCandidate(c, currentSourceKey, currentVodId) && c.ok) ??
     sorted[0];
   const selectedCandidateKey = selected ? candidateKey(selected) : '';
-
-  useEffect(() => {
-    const el = tabBarRef.current;
-    if (!el) return;
-    const update = () =>
-      setTabEdges({
-        left: el.scrollLeft > 4,
-        right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      });
-    update();
-    el.addEventListener('scroll', update, { passive: true });
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', update);
-      ro.disconnect();
-    };
-  }, [sorted.length]);
-
-  // 默认选中项常落在可视区外：滚进视野，否则高亮等于不存在
-  useEffect(() => {
-    const bar = tabBarRef.current;
-    if (!bar) return;
-    const active = bar.querySelector<HTMLElement>('[data-active="true"]');
-    if (!active) return;
-    bar.scrollTo({ left: active.offsetLeft - (bar.clientWidth - active.clientWidth) / 2, behavior: 'smooth' });
-  }, [selectedCandidateKey]);
 
   const retest = async (c: Candidate) => {
     const key = candidateKey(c);
@@ -226,9 +201,15 @@ export function SwitchSourceModal({
       setCandidates((prev) =>
         prev.map((x) =>
           candidateKey(x) === key
-            ? { ...x, ok: r.ok, ms: r.ms, episodes: r.detail?.episodes.length ?? 0, error: r.ok ? undefined : r.error }
-            : x
-        )
+            ? {
+                ...x,
+                ok: r.ok,
+                ms: r.ms,
+                episodes: r.detail?.episodes.length ?? 0,
+                error: r.ok ? undefined : r.error,
+              }
+            : x,
+        ),
       );
       // 重测成功说明源只是刚才抖了一下：强制补一次画质，否则会撞上失败冷却（2 分钟内不再探）
       if (r.ok) retry([c.result]);
@@ -255,209 +236,283 @@ export function SwitchSourceModal({
         title: c.result.name || currentTitle,
         sourceUrl: c.source.url,
         detail: c.source.detail,
-      })
+      }),
     );
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center bg-black/80 sm:py-10 sm:px-4 animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <Modal
+      open
+      title={`换源：${currentTitle}`}
+      onCancel={onClose}
+      width={768}
+      footer={null}
+      destroyOnHidden
+      styles={{
+        body: { maxHeight: 'calc(100dvh - 180px)', overflowY: 'auto', overflowX: 'hidden' },
       }}
     >
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="bg-surface-raised rounded-t-2xl sm:rounded-xl w-full max-w-3xl shadow-2xl p-5 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-slide-up outline-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`换源：${currentTitle}`}
-      >
-        <div className="sm:hidden mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-line" aria-hidden />
-        {/* 标题固定在滚动区之外：比 sticky 更省事，也不会有背景覆盖不到 padding 的缝隙 */}
-        <div className="shrink-0 mb-4 flex items-center justify-between">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-content truncate" title={currentTitle}>
-              {currentTitle}
-            </h2>
-            <p className="text-xs text-faint">
-              {phase === 'searching'
-                ? '正在搜索各资源...'
-                : phase === 'testing'
-                  ? '正在测试各资源速率...'
-                  : `共 ${sorted.length} 个来源 · ${sorted.filter((c) => c.ok).length} 个可用`}
-            </p>
-            {phase === 'done' && progress.total > 0 && (
-              <p className="text-xs text-faint tabular-nums mt-0.5">
-                {progress.done < progress.total
-                  ? `画质探测中 ${progress.done}/${progress.total}`
-                  : progress.known > 0
-                    ? `画质已探到 ${progress.known}/${progress.total}`
-                    : // 一个都没探到不等于失败：多为单码率/直链，说清楚省得用户以为坏了
-                      '源站未提供画质'}
-              </p>
-            )}
-          </div>
-          <button className="p-1.5 rounded-md text-muted hover:text-content hover:bg-hover" onClick={onClose} aria-label="关闭">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+      {/* 标题固定在滚动区之外：比 sticky 更省事，也不会有背景覆盖不到 padding 的缝隙 */}
+      <Flex style={{ marginBottom: 16, flexShrink: 0 }} align="center" justify="space-between">
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title
+            level={2}
+            ellipsis
+            style={{
+              margin: 0,
+              fontSize: 'var(--ant-font-size-lg)',
+              fontWeight: 600,
 
-        {/* 内容区独占剩余高度并自己滚动：标题与拖拽条始终可见，不随内容滚走 */}
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+              minWidth: 0,
+            }}
+            title={currentTitle}
+          >
+            {currentTitle}
+          </Typography.Title>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+          >
+            {phase === 'searching'
+              ? '正在搜索各资源...'
+              : phase === 'testing'
+                ? '正在测试各资源速率...'
+                : `共 ${sorted.length} 个来源 · ${sorted.filter((c) => c.ok).length} 个可用`}
+          </Typography.Paragraph>
+          {phase === 'done' && progress.total > 0 && (
+            <Typography.Paragraph
+              type="secondary"
+              style={{
+                margin: 0,
+                fontSize: 'var(--ant-font-size-sm)',
+
+                fontVariantNumeric: 'tabular-nums',
+                marginTop: 2,
+              }}
+            >
+              {progress.done < progress.total
+                ? `画质探测中 ${progress.done}/${progress.total}`
+                : progress.known > 0
+                  ? `画质已探到 ${progress.known}/${progress.total}`
+                  : // 一个都没探到不等于失败：多为单码率/直链，说清楚省得用户以为坏了
+                    '源站未提供画质'}
+            </Typography.Paragraph>
+          )}
+        </Flex>
+      </Flex>
+
+      {/* 内容区独占剩余高度并自己滚动：标题与拖拽条始终可见，不随内容滚走 */}
+      <Layout.Content
+        style={{ minHeight: 0, overflowY: 'auto', overflowX: 'hidden', flex: '1 1 0%' }}
+      >
         {phase !== 'done' ? (
-          <LoadingState label={phase === 'searching' ? '搜索各资源中...' : '测速中...'} />
+          <Spin description={phase === 'searching' ? '搜索各资源中...' : '测速中...'}>
+            <Flex style={{ minHeight: 112 }} />
+          </Spin>
         ) : sorted.length === 0 ? (
-          <EmptyState variant="plain" title="其他点播源未找到同名资源" />
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <Space orientation="vertical">
+                <Typography.Text>{'其他点播源未找到同名资源'}</Typography.Text>
+              </Space>
+            }
+          ></Empty>
         ) : (
           <>
-            {/* 横向 Tab：源多时比网格省纵向空间，手机上可直接滑动 */}
-            <div className="relative">
-              <div
-                ref={tabBarRef}
-                className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin"
-                role="tablist"
-                aria-label="选择播放源"
-              >
-                {sorted.map((c) => {
-                  const isCurrent = isCurrentCandidate(c, currentSourceKey, currentVodId);
-                  const key = candidateKey(c);
-                  const active = selected === c;
-                  const qLabel = qualityLabel(qualities[qualityKey(c.source.key, c.result.vodId)]?.height);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      data-active={active}
-                      aria-selected={active}
-                      className={cn(
-                        'shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors',
-                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/50',
-                        active ? 'border-accent bg-accent/10 text-accent' : 'border-line bg-chip text-muted hover:bg-hover'
-                      )}
-                      onClick={() => setSelectedKey(key)}
-                    >
-                      <span className="max-w-[8rem] truncate font-medium">{c.source.name}</span>
-                      {isCurrent && <span className="text-[10px] opacity-80">当前</span>}
-                      {qLabel && <span className="text-[10px] tabular-nums opacity-70">{qLabel}</span>}
-                      {c.ok ? (
-                        <span
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full shrink-0',
-                            (c.ms ?? 0) > 2000 ? 'bg-warning-solid' : 'bg-success-solid'
-                          )}
-                          title={`${c.ms}ms`}
-                        />
-                      ) : (
-                        <span className="text-[10px] text-danger">失败</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {/* 左右渐隐：提示这一栏还能横向滑 */}
-              {tabEdges.left && (
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-surface-raised to-transparent" />
-              )}
-              {tabEdges.right && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-surface-raised to-transparent" />
-              )}
-            </div>
+            <Tabs
+              activeKey={selectedCandidateKey}
+              onChange={setSelectedKey}
+              size="small"
+              items={sorted.map((c) => ({
+                key: candidateKey(c),
+                label: (
+                  <Typography.Text>
+                    {c.source.name}
+                    {isCurrentCandidate(c, currentSourceKey, currentVodId) ? ' · 当前' : ''}
+                    {qualityLabel(qualities[qualityKey(c.source.key, c.result.vodId)]?.height)
+                      ? ' · ' +
+                        qualityLabel(qualities[qualityKey(c.source.key, c.result.vodId)]?.height)
+                      : ''}
+                  </Typography.Text>
+                ),
+                icon: (
+                  <Badge status={!c.ok ? 'error' : (c.ms ?? 0) > 2000 ? 'warning' : 'success'} />
+                ),
+              }))}
+            />
 
             {/* 选中源详情：封面降到缩略图，只留速度/集数两项真正要比的数据 */}
-            {selected && (() => {
-              const c = selected;
-              const isCurrent = isCurrentCandidate(c, currentSourceKey, currentVodId);
-              const key = candidateKey(c);
-              const coverFailed = imgFailed[key] ?? false;
-              const qKey = qualityKey(c.source.key, c.result.vodId);
-              return (
-                <div className="mt-3 flex items-start gap-3 p-3 bg-card rounded-lg">
-                  <div className="shrink-0 w-20 aspect-[2/3] rounded-md overflow-hidden bg-chip">
-                    {c.result.pic && !coverFailed ? (
-                      <SmartImage
-                        url={c.result.pic}
-                        mode={store.imageProxyMode}
-                        customProxy={store.customImageProxy}
-                        alt={c.result.name}
-                        className="w-full h-full object-cover"
-                        onExhausted={() => setImgFailed((prev) => ({ ...prev, [key]: true }))}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-faint">
-                        <Icon name="link" className="w-5 h-5" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h3 className="text-sm font-semibold text-content truncate" title={c.source.name}>
-                        {c.source.name}
-                      </h3>
-                      <QualityBadge entry={qualities[qKey]} loading={probing[qKey]} onRetry={() => retry([c.result])} />
-                      {isCurrent && (
-                        <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent">播放中</span>
-                      )}
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-[16rem]">
-                      <div className="rounded-md bg-chip px-2 py-1.5">
-                        <div className="text-[10px] text-faint">速度</div>
-                        <div
-                          className={cn(
-                            'text-xs font-medium tabular-nums',
-                            !c.ok ? 'text-danger' : (c.ms ?? 0) > 2000 ? 'text-warning' : 'text-success'
-                          )}
-                        >
-                          {c.ok ? `${c.ms}ms` : '不可用'}
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-chip px-2 py-1.5">
-                        <div className="text-[10px] text-faint">集数</div>
-                        <div className="text-xs font-medium text-content">
-                          {c.episodes ? `${c.episodes} 集` : '无资源'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      {isCurrent ? (
-                        <span className="text-xs text-accent">当前正在播放</span>
+            {selected &&
+              (() => {
+                const c = selected;
+                const isCurrent = isCurrentCandidate(c, currentSourceKey, currentVodId);
+                const key = candidateKey(c);
+                const coverFailed = imgFailed[key] ?? false;
+                const qKey = qualityKey(c.source.key, c.result.vodId);
+                return (
+                  <Flex
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      backgroundColor: 'var(--ant-color-bg-container)',
+                      borderRadius: 'var(--ant-border-radius-lg)',
+                    }}
+                    align="flex-start"
+                    gap={12}
+                  >
+                    <Flex
+                      style={{
+                        width: 80,
+                        aspectRatio: '2/3',
+                        borderRadius: 'var(--ant-border-radius)',
+                        overflow: 'hidden',
+                        backgroundColor: 'var(--ant-color-fill-tertiary)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {c.result.pic && !coverFailed ? (
+                        <SmartImage
+                          url={c.result.pic}
+                          mode={store.imageProxyMode}
+                          customProxy={store.customImageProxy}
+                          alt={c.result.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onExhausted={() => setImgFailed((prev) => ({ ...prev, [key]: true }))}
+                        />
                       ) : (
-                        <>
-                          <button type="button" className="btn-primary btn-sm" disabled={!c.episodes} onClick={() => switchTo(c)}>
-                            切换到此源
-                          </button>
-                          {/* 测速失败但拿得到集数：允许点。详情接口偶发超时很常见，别把能播的源挡在外面 */}
-                          {!c.ok && !!c.episodes && <span className="text-xs text-warning">测速未通过，仍可尝试</span>}
-                        </>
-                      )}
-                      {!c.ok && (
-                        <button
-                          type="button"
-                          className="btn-ghost btn-sm"
-                          disabled={retestingKey === key}
-                          onClick={() => void retest(c)}
+                        <Flex
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            color: 'var(--ant-color-text-tertiary)',
+                          }}
+                          align="center"
+                          justify="center"
                         >
-                          {retestingKey === key ? '重测中...' : '重新测速'}
-                        </button>
+                          <LinkOutlined style={{ fontSize: 20 }} aria-hidden />
+                        </Flex>
                       )}
-                    </div>
-                    {!c.ok && c.error && (
-                      <p className="mt-1 text-[11px] text-faint line-clamp-1" title={c.error}>
-                        {c.error}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+                    </Flex>
+                    <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+                      <Flex style={{ minWidth: 0 }} align="center" gap={8}>
+                        <Typography.Title
+                          level={3}
+                          ellipsis
+                          style={{
+                            margin: 0,
+                            fontSize: 'var(--ant-font-size)',
+                            fontWeight: 600,
+
+                            minWidth: 0,
+                          }}
+                          title={c.source.name}
+                        >
+                          {c.source.name}
+                        </Typography.Title>
+                        <QualityBadge
+                          entry={qualities[qKey]}
+                          loading={probing[qKey]}
+                          onRetry={() => retry([c.result])}
+                        />
+                        {isCurrent && (
+                          <Tag style={{ flexShrink: 0 }} color="gold">
+                            播放中
+                          </Tag>
+                        )}
+                      </Flex>
+                      <Row gutter={[16, 8]} style={{ marginTop: 8 }}>
+                        <Col span={12}>
+                          <Statistic
+                            title="速度"
+                            value={c.ok ? (c.ms ?? 0) : '不可用'}
+                            suffix={c.ok ? 'ms' : undefined}
+                            styles={{
+                              content: {
+                                fontSize: 14,
+                                color: !c.ok
+                                  ? 'var(--ant-color-error)'
+                                  : (c.ms ?? 0) > 2000
+                                    ? 'var(--ant-color-warning)'
+                                    : 'var(--ant-color-success)',
+                              },
+                            }}
+                          />
+                        </Col>
+                        <Col span={12}>
+                          <Statistic
+                            title="集数"
+                            value={c.episodes || '无资源'}
+                            suffix={c.episodes ? '集' : undefined}
+                            styles={{ content: { fontSize: 14 } }}
+                          />
+                        </Col>
+                      </Row>
+                      <Flex style={{ marginTop: 10 }} wrap align="center" gap={8}>
+                        {isCurrent ? (
+                          <Typography.Text
+                            style={{
+                              fontSize: 'var(--ant-font-size-sm)',
+                              color: 'var(--ant-color-primary)',
+                            }}
+                          >
+                            当前正在播放
+                          </Typography.Text>
+                        ) : (
+                          <>
+                            <Button
+                              type="primary"
+                              size="small"
+                              htmlType="button"
+
+                              disabled={!c.episodes}
+                              onClick={() => switchTo(c)}
+                            >
+                              切换到此源
+                            </Button>
+                            {/* 测速失败但拿得到集数：允许点。详情接口偶发超时很常见，别把能播的源挡在外面 */}
+                            {!c.ok && !!c.episodes && (
+                              <Typography.Text
+                                type="warning"
+                                style={{
+                                  fontSize: 'var(--ant-font-size-sm)',
+                                }}
+                              >
+                                测速未通过，仍可尝试
+                              </Typography.Text>
+                            )}
+                          </>
+                        )}
+                        {!c.ok && (
+                          <Button
+                            type="default"
+                            size="small"
+                            htmlType="button"
+
+                            disabled={retestingKey === key}
+                            onClick={() => void retest(c)}
+                          >
+                            {retestingKey === key ? '重测中...' : '重新测速'}
+                          </Button>
+                        )}
+                      </Flex>
+                      {!c.ok && c.error && (
+                        <Typography.Paragraph
+                          type="secondary"
+                          ellipsis={{ rows: 1 }}
+                          style={{ margin: 0, marginTop: 4, fontSize: '11px' }}
+                          title={c.error}
+                        >
+                          {c.error}
+                        </Typography.Paragraph>
+                      )}
+                    </Flex>
+                  </Flex>
+                );
+              })()}
           </>
         )}
-        </div>
-      </div>
-    </div>
+      </Layout.Content>
+    </Modal>
   );
 }

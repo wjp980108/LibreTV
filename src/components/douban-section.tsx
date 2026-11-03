@@ -1,26 +1,101 @@
 'use client';
 
+import { ReloadOutlined, VideoCameraOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import {
+  Button,
+  Segmented,
+  Skeleton,
+  Tag,
+  Row,
+  Col,
+  Typography,
+  Empty,
+  Result,
+  Divider,
+  Flex,
+} from 'antd';
+
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client-api';
 import { useAppStore } from '@/lib/store';
-import { cn } from '@/lib/utils';
 import type { DoubanItem } from '@/lib/types';
 import { DoubanCard } from './video-card';
 
-const MOVIE_TAGS = ['热门', '最新', '经典', '豆瓣高分', '冷门佳片', '华语', '欧美', '韩国', '日本', '动画'];
-const TV_TAGS = ['热门', '美剧', '英剧', '韩剧', '日剧', '国产剧', '港剧', '日本动画', '综艺', '纪录片'];
+const MOVIE_TAGS = [
+  '热门',
+  '最新',
+  '经典',
+  '豆瓣高分',
+  '冷门佳片',
+  '华语',
+  '欧美',
+  '韩国',
+  '日本',
+  '动画',
+];
+const TV_TAGS = [
+  '热门',
+  '美剧',
+  '英剧',
+  '韩剧',
+  '日剧',
+  '国产剧',
+  '港剧',
+  '日本动画',
+  '综艺',
+  '纪录片',
+];
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
-/** 首页推荐区：数据源由设置决定（豆瓣热门 / Bangumi 新番放送 / 影视热榜），二选一展示 */
+/** 首页推荐区：按设置展示豆瓣热门、Bangumi 新番放送或影视热榜。 */
 export function RecommendSection({ onPick }: { onPick: (title: string) => void }) {
   const doubanEnabled = useAppStore((s) => s.doubanEnabled);
   const recommendSource = useAppStore((s) => s.recommendSource);
 
-  if (!doubanEnabled) return null;
-  if (recommendSource === 'bangumi') return <BangumiView onPick={onPick} />;
-  if (recommendSource === 'hot-list') return <HotListView onPick={onPick} />;
-  return <DoubanView onPick={onPick} />;
+  return (
+    <Flex
+      component="section"
+      vertical
+      gap={20}
+      id="discover"
+      style={{ scrollMarginTop: 100 }}
+      aria-labelledby="discover-title"
+    >
+      <Flex align="center" justify="space-between" gap={12}>
+        <Flex vertical>
+          <Typography.Text style={{ fontSize: 10, letterSpacing: 1.8, fontWeight: 500 }}>
+            FIND YOUR NEXT FAVORITE
+          </Typography.Text>
+          <Typography.Title level={4} id="discover-title" style={{ margin: 0 }}>
+            为你发现
+            <Typography.Text type="secondary" style={{ fontSize: 11, marginInlineStart: 16 }}>
+              {recommendSource === 'bangumi' ? '跟上每一份热爱' : '总有一部，正合你意'}
+            </Typography.Text>
+          </Typography.Title>
+        </Flex>
+        <Typography.Text style={{ fontSize: 12 }}>
+          {recommendSource === 'bangumi'
+            ? 'Bangumi 每日放送'
+            : recommendSource === 'hot-list'
+              ? '影视热榜'
+              : '豆瓣精选'}
+        </Typography.Text>
+      </Flex>
+      {!doubanEnabled ? (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="首页推荐已关闭，可在影院设置中开启。你也可以在上方直接搜索影片。"
+        />
+      ) : recommendSource === 'bangumi' ? (
+        <BangumiView onPick={onPick} />
+      ) : recommendSource === 'hot-list' ? (
+        <HotListView onPick={onPick} />
+      ) : (
+        <DoubanView onPick={onPick} />
+      )}
+    </Flex>
+  );
 }
 
 /**
@@ -47,49 +122,44 @@ function DoubanView({ onPick }: { onPick: (title: string) => void }) {
   };
 
   return (
-    <section aria-label="影视推荐">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex bg-chip rounded-lg p-0.5">
-            <TypeButton active={type === 'movie'} onClick={() => switchType('movie')}>
-              电影
-            </TypeButton>
-            <TypeButton active={type === 'tv'} onClick={() => switchType('tv')}>
-              剧集
-            </TypeButton>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {tags.map((t) => (
-          <button
-            key={t}
-            className={cn(
-              'px-2.5 py-1 rounded-full text-xs transition-colors',
-              t === tag ? 'bg-accent text-on-accent' : 'bg-chip text-muted hover:text-content hover:bg-hover'
-            )}
-            onClick={() => setTag(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {query.isError ? (
-        <p className="text-center text-sm text-faint py-8">推荐内容加载失败，可稍后重试或在设置中关闭</p>
-      ) : query.isLoading ? (
-        <GridSkeleton />
-      ) : items.length === 0 ? (
-        <p className="text-center text-sm text-faint py-8">该分类暂无推荐内容</p>
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {items.map((item) => (
-            <DoubanCard key={item.id} item={item} onClick={() => onPick(item.title)} />
+    <Flex component="section" vertical gap={20} aria-label="影视推荐">
+      <Flex align="center" wrap gap={12}>
+        <Segmented
+          aria-label="影视类型"
+          value={type}
+          options={[
+            { label: '电影', value: 'movie' },
+            { label: '剧集', value: 'tv' },
+          ]}
+          onChange={switchType}
+        />
+        <Divider orientation="vertical" />
+        <Flex wrap gap={4} style={{ flex: 1, minWidth: 200 }}>
+          {tags.map((t) => (
+            <Tag.CheckableTag key={t} checked={t === tag} onChange={() => setTag(t)}>
+              {t}
+            </Tag.CheckableTag>
           ))}
-        </div>
-      )}
-    </section>
+        </Flex>
+        <Button
+          type="text"
+
+          aria-label="刷新推荐"
+          title="刷新推荐"
+          loading={query.isFetching}
+          icon={<ReloadOutlined style={{ fontSize: 16 }} aria-hidden />}
+          onClick={() => void query.refetch()}
+        />
+      </Flex>
+
+      <RecommendationGrid
+        items={items}
+        loading={query.isLoading}
+        failed={query.isError}
+        onRetry={() => void query.refetch()}
+        onPick={onPick}
+      />
+    </Flex>
   );
 }
 
@@ -104,36 +174,37 @@ function BangumiView({ onPick }: { onPick: (title: string) => void }) {
 
   let items: DoubanItem[] = [];
   if (query.data) {
-    items = weekday === 'all'
-      ? query.data.days.flatMap((d) => d.items)
-      : (query.data.days.find((d) => d.weekday === weekday)?.items ?? []);
+    items =
+      weekday === 'all'
+        ? query.data.days.flatMap((d) => d.items)
+        : (query.data.days.find((d) => d.weekday === weekday)?.items ?? []);
   }
 
   return (
-    <section aria-label="新番放送推荐">
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        <ChipButton active={weekday === 'all'} onClick={() => setWeekday('all')}>
+    <Flex component="section" vertical gap={20} aria-label="新番放送推荐">
+      <Flex style={{ marginBottom: 16 }} wrap gap={6}>
+        <Tag.CheckableTag checked={weekday === 'all'} onChange={() => setWeekday('all')}>
           全部
-        </ChipButton>
+        </Tag.CheckableTag>
         {WEEKDAYS.map((name, i) => (
-          <ChipButton key={name} active={weekday === i + 1} onClick={() => setWeekday(i + 1)}>
+          <Tag.CheckableTag
+            key={name}
+            checked={weekday === i + 1}
+            onChange={() => setWeekday(i + 1)}
+          >
             {name}
-          </ChipButton>
+          </Tag.CheckableTag>
         ))}
-      </div>
+      </Flex>
 
-      {query.isError ? (
-        <p className="text-center text-sm text-faint py-8">推荐内容加载失败，可稍后重试或在设置中关闭</p>
-      ) : query.isLoading ? (
-        <GridSkeleton />
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {items.map((item) => (
-            <DoubanCard key={item.id} item={item} onClick={() => onPick(item.title)} />
-          ))}
-        </div>
-      )}
-    </section>
+      <RecommendationGrid
+        items={items}
+        loading={query.isLoading}
+        failed={query.isError}
+        onRetry={() => void query.refetch()}
+        onPick={onPick}
+      />
+    </Flex>
   );
 }
 
@@ -158,65 +229,80 @@ function HotListView({ onPick }: { onPick: (title: string) => void }) {
   const items = query.data?.items ?? [];
 
   return (
-    <section aria-label="影视榜单推荐">
-      <div className="flex flex-wrap gap-1.5 mb-4">
+    <Flex component="section" vertical gap={20} aria-label="影视榜单推荐">
+      <Flex style={{ marginBottom: 16 }} wrap gap={6}>
         {HOT_LISTS.map((l) => (
-          <ChipButton key={l.id} active={listId === l.id} onClick={() => setListId(l.id)}>
+          <Tag.CheckableTag key={l.id} checked={listId === l.id} onChange={() => setListId(l.id)}>
             {l.label}
-          </ChipButton>
+          </Tag.CheckableTag>
         ))}
-      </div>
+      </Flex>
 
-      {query.isError ? (
-        <p className="text-center text-sm text-faint py-8">推荐内容加载失败，可稍后重试或在设置中关闭</p>
-      ) : query.isLoading ? (
-        <GridSkeleton />
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {items.map((item) => (
-            <DoubanCard key={item.id} item={item} onClick={() => onPick(item.title)} />
-          ))}
-        </div>
-      )}
-    </section>
+      <RecommendationGrid
+        items={items}
+        loading={query.isLoading}
+        failed={query.isError}
+        onRetry={() => void query.refetch()}
+        onPick={onPick}
+      />
+    </Flex>
+  );
+}
+
+function RecommendationGrid({
+  items,
+  loading,
+  failed,
+  onRetry,
+  onPick,
+}: {
+  items: DoubanItem[];
+  loading: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  onPick: (title: string) => void;
+}) {
+  if (loading) return <GridSkeleton />;
+  if (failed)
+    return (
+      <Result
+        icon={<VideoCameraOutlined style={{ fontSize: 18 }} aria-hidden />}
+        title="故事暂时还没准备好"
+        subTitle="推荐加载失败，你可以重试，或在上方搜索想看的影片。"
+        extra={
+          <Button onClick={onRetry} icon={<ReloadOutlined style={{ fontSize: 18 }} aria-hidden />}>
+            重新加载
+          </Button>
+        }
+      />
+    );
+  if (items.length === 0)
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="该分类暂无推荐内容，换个分类看看吧。"
+      />
+    );
+  return (
+    <Row gutter={[16, 24]}>
+      {items.map((item) => (
+        <Col key={item.id} xs={8} sm={6} xl={4}>
+          <DoubanCard item={item} onClick={() => onPick(item.title)} />
+        </Col>
+      ))}
+    </Row>
   );
 }
 
 function GridSkeleton() {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-      {Array.from({ length: 16 }).map((_, i) => (
-        <div key={i}>
-          <div className="aspect-[2/3] rounded-lg bg-chip animate-pulse" />
-          <div className="h-3 mt-2 rounded bg-chip animate-pulse" />
-        </div>
+    <Row gutter={[16, 24]}>
+      {Array.from({ length: 12 }, (_, i) => (
+        <Col key={i} xs={8} sm={6} xl={4}>
+          <Skeleton.Node active style={{ width: '100%', height: 'auto', aspectRatio: '2/3' }} />
+          <Skeleton active title={{ width: '70%' }} paragraph={false} style={{ marginTop: 12 }} />
+        </Col>
       ))}
-    </div>
-  );
-}
-
-function ChipButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      className={cn(
-        'px-2.5 py-1 rounded-full text-xs transition-colors',
-        active ? 'bg-accent text-on-accent' : 'bg-chip text-muted hover:text-content hover:bg-hover'
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
-function TypeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      className={cn('px-3.5 py-1.5 rounded-md text-sm transition-colors', active ? 'bg-accent text-on-accent' : 'text-muted hover:text-content')}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
+    </Row>
   );
 }

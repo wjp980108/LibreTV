@@ -1,13 +1,20 @@
 'use client';
 
+import {
+  PlusOutlined,
+  SearchOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
+import { Button, Checkbox, Input, Empty, Space, Typography, Flex, Tag, Card } from 'antd';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useToast } from './toast';
 import { api } from '@/lib/client-api';
-import { formatRelativeTime, hostnameOf, validateSourceUrl, cn } from '@/lib/utils';
-import { SearchInput, SectionTitle, TestBadge, useSourceTests } from './settings-shared';
-import { EmptyState } from './states';
-import { Icon } from './icon';
+import { formatRelativeTime, hostnameOf, validateSourceUrl } from '@/lib/utils';
+import { TestBadge, useSourceTests } from './settings-shared';
 
 /**
  * 直播源管理（嵌入设置抽屉）：M3U 订阅的添加 / 探活 / 移除 / 导出，
@@ -73,7 +80,9 @@ export function LiveSourceManager() {
   }, [store.liveEnvSources, store.liveSubscriptions, store.liveSelectedUrls, query, filter]);
 
   // 编辑中的手动源（与「添加」共用同一表单）
-  const editingSource = editing ? store.liveSubscriptions.find((s) => s.url === editing) : undefined;
+  const editingSource = editing
+    ? store.liveSubscriptions.find((s) => s.url === editing)
+    : undefined;
 
   const exportM3u = (url: string) => {
     window.open(api.liveExportUrl(url), '_blank', 'noopener');
@@ -107,17 +116,25 @@ export function LiveSourceManager() {
   const empty = store.liveEnvSources.length === 0 && store.liveSubscriptions.length === 0;
 
   return (
-    <section>
-      <SectionTitle
-        title="直播源"
-        hint={empty ? 'M3U 订阅 · /live 页面播放' : `共 ${store.liveEnvSources.length + store.liveSubscriptions.length} 个 · 已启用 ${store.liveSelectedUrls.length}`}
-        extra={
-          <button className="btn-primary btn-sm" onClick={() => setAdding(true)}>
-            <Icon name="plus" className="w-3.5 h-3.5" />
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'直播源'}
+          </Typography.Title>
+          <Typography.Text type="secondary" ellipsis>
+            {empty
+              ? 'M3U 订阅 · /live 页面播放'
+              : `共 ${store.liveEnvSources.length + store.liveSubscriptions.length} 个 · 已启用 ${store.liveSelectedUrls.length}`}
+          </Typography.Text>
+        </Flex>
+        {
+          <Button type="primary" size="small" onClick={() => setAdding(true)}>
+            <PlusOutlined style={{ fontSize: 14 }} aria-hidden />
             添加直播源
-          </button>
+          </Button>
         }
-      />
+      </Flex>
 
       {/* 与点播源一致：由「+ 添加 / 编辑」按钮展开同一表单，而非常驻占位 */}
       <LiveSourceForm
@@ -141,152 +158,213 @@ export function LiveSourceManager() {
       />
 
       {empty && !adding && editingSource === undefined ? (
-        <EmptyState
-          icon="link"
-          title="还没有添加任何直播源"
-          description="添加 M3U 地址后即可在「直播」页按分组浏览与播放频道；也可在「数据源订阅」中一次导入点播源与直播源；部署者还可通过 DEFAULT_LIVE_SOURCES 环境变量预置。"
-          action={
-            <button className="btn-primary btn-sm" onClick={() => setAdding(true)}>
-              添加第一个直播源
-            </button>
+        <Empty
+          description={
+            <Space orientation="vertical">
+              <Typography.Text>{'还没有添加任何直播源'}</Typography.Text>
+              <Typography.Text type="secondary">
+                {
+                  '添加 M3U 地址后即可在「直播」页按分组浏览与播放频道；也可在「数据源订阅」中一次导入点播源与直播源；部署者还可通过 DEFAULT_LIVE_SOURCES 环境变量预置。'
+                }
+              </Typography.Text>
+            </Space>
           }
-        />
+        >
+          {
+            <Button type="primary" size="small" onClick={() => setAdding(true)}>
+              添加第一个直播源
+            </Button>
+          }
+        </Empty>
       ) : (
         <>
-          <div className="space-y-2 mb-3">
-            <SearchInput value={query} onChange={setQuery} placeholder="搜索名称或地址" />
-            <div className="flex flex-wrap items-center gap-1">
+          <Flex style={{ marginBottom: 12 }} vertical gap={8}>
+            <Input
+              allowClear
+              prefix={<SearchOutlined style={{ fontSize: 16 }} aria-hidden />}
+              aria-label={'搜索名称或地址'}
+              placeholder={'搜索名称或地址'}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <Flex wrap align="center" gap={4}>
               {LIVE_FILTERS.map((f) => (
-                <button
+                <Tag.CheckableTag
                   key={f.id}
-                  className={cn(
-                    'chip',
-                    filter === f.id ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-content hover:bg-hover'
-                  )}
-                  onClick={() => setFilter(f.id)}
-                  aria-pressed={filter === f.id}
+
+                  onChange={() => setFilter(f.id)}
+                  checked={filter === f.id}
                 >
                   {f.label}
-                </button>
+                </Tag.CheckableTag>
               ))}
-              <span className="ml-auto text-[11px] text-faint">显示 {rows.length} 个</span>
-            </div>
-            <button className="btn-ghost btn-sm" onClick={toggleAll} disabled={rows.length === 0}>
+              <Typography.Text
+                type="secondary"
+                style={{
+                  marginInlineStart: 'auto',
+                  fontSize: '11px',
+                }}
+              >
+                显示 {rows.length} 个
+              </Typography.Text>
+            </Flex>
+            <Button
+              type="default"
+              size="small"
+
+              onClick={toggleAll}
+              disabled={rows.length === 0}
+            >
               {allEnabled ? '全部停用' : '全部启用'}
-            </button>
-          </div>
+            </Button>
+          </Flex>
 
           {rows.length === 0 ? (
-            <EmptyState variant="plain" title="没有符合条件的源" />
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <Space orientation="vertical">
+                  <Typography.Text>{'没有符合条件的源'}</Typography.Text>
+                </Space>
+              }
+            ></Empty>
           ) : (
-            <ul className="space-y-2">
+            <Flex
+              style={{ margin: 0, padding: 0, listStyle: 'none' }}
+              vertical
+              gap={8}
+              component="ul"
+            >
               {rows.map((row) => {
                 const enabled = store.liveSelectedUrls.includes(row.url);
                 const fromSubscription = row.fromSubscriptions.length > 0;
                 return (
-                  <li
-                    key={row.url}
-                    className={cn(
-                      'bg-card rounded-lg p-3 transition-colors hover:bg-hover/50',
-                      // 未勾选 = 不参与直播列表：淡显，与点播源面板保持同一套停用观感
-                      !enabled && 'opacity-70'
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-accent shrink-0"
-                        checked={enabled}
-                        onChange={() => useAppStore.getState().toggleLiveSelected(row.url)}
-                        aria-label={enabled ? `停用 ${row.label}` : `启用 ${row.label}`}
-                        title={enabled ? '已启用，取消勾选可停用' : '已停用，勾选后生效'}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-content truncate">
-                          {row.label}
-                          {row.preset && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-chip text-faint align-middle">
-                              部署者预置
-                            </span>
-                          )}
-                          {fromSubscription && (
-                            <span
-                              className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent align-middle"
-                              title={`来自 ${row.fromSubscriptions.length} 个数据源订阅；删除单个订阅不影响此源，仅当不再被任何订阅引用时才会移除`}
+                  <li key={row.url}>
+                    <Card size="small" style={{ ...(!enabled ? { opacity: 0.7 } : {}) }}>
+                      <Flex align="center" gap={8}>
+                        <Checkbox
+                          style={{ height: 16, width: 16, flexShrink: 0 }}
+
+                          checked={enabled}
+                          onChange={() => useAppStore.getState().toggleLiveSelected(row.url)}
+                          aria-label={enabled ? `停用 ${row.label}` : `启用 ${row.label}`}
+                          title={enabled ? '已启用，取消勾选可停用' : '已停用，勾选后生效'}
+                        />
+                        <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+                          <Flex
+                            vertical
+                            style={{
+                              fontSize: 'var(--ant-font-size)',
+                              fontWeight: 500,
+                              color: 'var(--ant-color-text)',
+                              minWidth: 0,
+                              overflow: 'hidden',
+                              whiteSpace: 'nowrap',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {row.label}
+                            {row.preset && <Tag style={{ marginInlineStart: 6 }}>部署者预置</Tag>}
+                            {fromSubscription && (
+                              <Tag
+                                color="gold"
+                                style={{ marginInlineStart: 6 }}
+                                title={`来自 ${row.fromSubscriptions.length} 个数据源订阅；删除单个订阅不影响此源，仅当不再被任何订阅引用时才会移除`}
+                              >
+                                订阅
+                              </Tag>
+                            )}
+                          </Flex>
+                          <Flex
+                            vertical
+                            style={{
+                              fontSize: 'var(--ant-font-size-sm)',
+                              color: 'var(--ant-color-text-tertiary)',
+                              minWidth: 0,
+                              overflow: 'hidden',
+                              whiteSpace: 'nowrap',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {row.url}
+                            {row.epgUrl && ' · 已配置节目单'}
+                            {row.lastSync && ` · 同步于 ${formatRelativeTime(row.lastSync)}`}
+                          </Flex>
+                        </Flex>
+                        <TestBadge
+                          state={tests[row.url]}
+                          onTest={() => runTest(row.url, () => api.liveTest(row.url))}
+                          title="拉取解析并测速（频道数量与耗时）"
+                          badgeWhenOk={({ count }) => `✓ ${count ?? 0} 频道`}
+                        />
+                        <Button
+                          style={{ flexShrink: 0 }}
+                          type="text"
+
+                          onClick={() => exportM3u(row.url)}
+                          aria-label="导出 M3U"
+                          title="导出为标准 M3U 文件"
+                        >
+                          <DownloadOutlined style={{ fontSize: 16 }} aria-hidden />
+                        </Button>
+                        {row.preset ? null : fromSubscription ? (
+                          <>
+                            {/* 订阅源由远端列表管理：编辑会被下次同步覆盖、删除会复活，故置为禁用态并指路 */}
+                            <Button
+                              style={{ flexShrink: 0 }}
+                              type="text"
+
+                              disabled
+                              aria-label="订阅源不可单独编辑"
+                              title="该源来自数据源订阅，修改会在下次同步时被覆盖；请修改远端订阅内容后重新同步"
                             >
-                              订阅
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-faint truncate">
-                          {row.url}
-                          {row.epgUrl && ' · 已配置节目单'}
-                          {row.lastSync && ` · 同步于 ${formatRelativeTime(row.lastSync)}`}
-                        </div>
-                      </div>
-                      <TestBadge
-                        state={tests[row.url]}
-                        onTest={() => runTest(row.url, () => api.liveTest(row.url))}
-                        title="拉取解析并测速（频道数量与耗时）"
-                        badgeWhenOk={({ count }) => `✓ ${count ?? 0} 频道`}
-                      />
-                      <button
-                        className="rounded-md p-2 text-muted transition-colors hover:bg-hover hover:text-accent shrink-0"
-                        onClick={() => exportM3u(row.url)}
-                        aria-label="导出 M3U"
-                        title="导出为标准 M3U 文件"
-                      >
-                        <Icon name="download" className="w-4 h-4" />
-                      </button>
-                      {row.preset ? null : fromSubscription ? (
-                        <>
-                          {/* 订阅源由远端列表管理：编辑会被下次同步覆盖、删除会复活，故置为禁用态并指路 */}
-                          <button
-                            className="rounded-md p-2 text-muted/30 cursor-not-allowed shrink-0"
-                            disabled
-                            aria-label="订阅源不可单独编辑"
-                            title="该源来自数据源订阅，修改会在下次同步时被覆盖；请修改远端订阅内容后重新同步"
-                          >
-                            <Icon name="edit" className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="rounded-md p-2 text-muted/30 cursor-not-allowed shrink-0"
-                            disabled
-                            aria-label="订阅源不可单独删除"
-                            title="该源来自数据源订阅；请到「数据源订阅」中删除整个订阅"
-                          >
-                            <Icon name="trash" className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            className="rounded-md p-2 text-muted transition-colors hover:bg-hover hover:text-accent shrink-0"
-                            onClick={() => setEditing(row.url)}
-                            aria-label="编辑"
-                            title="编辑名称与节目单地址"
-                          >
-                            <Icon name="edit" className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="rounded-md p-2 text-muted transition-colors hover:bg-hover hover:text-danger shrink-0"
-                            onClick={() => removeWithUndo(row)}
-                            aria-label="删除直播源"
-                            title="移除（可在提示中撤销）"
-                          >
-                            <Icon name="trash" className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
+                              <EditOutlined style={{ fontSize: 16 }} aria-hidden />
+                            </Button>
+                            <Button
+                              style={{ flexShrink: 0 }}
+                              type="text"
+
+                              disabled
+                              aria-label="订阅源不可单独删除"
+                              title="该源来自数据源订阅；请到「数据源订阅」中删除整个订阅"
+                            >
+                              <DeleteOutlined style={{ fontSize: 16 }} aria-hidden />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              style={{ flexShrink: 0 }}
+                              type="text"
+
+                              onClick={() => setEditing(row.url)}
+                              aria-label="编辑"
+                              title="编辑名称与节目单地址"
+                            >
+                              <EditOutlined style={{ fontSize: 16 }} aria-hidden />
+                            </Button>
+                            <Button
+                              style={{ flexShrink: 0 }}
+                              type="text"
+
+                              onClick={() => removeWithUndo(row)}
+                              aria-label="删除直播源"
+                              title="移除（可在提示中撤销）"
+                            >
+                              <DeleteOutlined style={{ fontSize: 16 }} aria-hidden />
+                            </Button>
+                          </>
+                        )}
+                      </Flex>
+                    </Card>
                   </li>
                 );
               })}
-            </ul>
+            </Flex>
           )}
         </>
       )}
-    </section>
+    </Flex>
   );
 }
 
@@ -332,41 +410,51 @@ function LiveSourceForm({
   };
 
   return (
-    <div className="space-y-2 border border-line rounded-lg p-3 bg-chip mb-2">
-      <input
-        className="input w-full disabled:opacity-60"
-        aria-label="M3U 订阅地址"
-        placeholder="M3U 订阅地址，如 https://example.com/list.m3u"
-        value={url}
-        maxLength={500}
-        disabled={!!initial}
-        title={initial ? '地址不可修改；如需更换请删除后重新添加' : undefined}
-        onChange={(e) => setUrl(e.target.value)}
-      />
-      <input
-        className="input w-full"
-        aria-label="直播源名称（可选）"
-        placeholder="名称（可选），如 我的频道列表"
-        value={name}
-        maxLength={50}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <input
-        className="input w-full"
-        aria-label="EPG 节目单地址（可选）"
-        placeholder="EPG 节目单地址（可选，XMLTV xml/xml.gz）"
-        value={epg}
-        maxLength={500}
-        onChange={(e) => setEpg(e.target.value)}
-      />
-      <div className="flex gap-2 justify-end">
-        <button className="btn-ghost btn-sm" onClick={onCancel}>
-          取消
-        </button>
-        <button className="btn-primary btn-sm" onClick={submit}>
-          添加
-        </button>
-      </div>
-    </div>
+    <Card
+      size="small"
+      style={{
+        borderColor: 'var(--ant-color-border-secondary)',
+        backgroundColor: 'var(--ant-color-fill-tertiary)',
+        marginBottom: 8,
+      }}
+      styles={{ body: { padding: 12 } }}
+    >
+      <Flex vertical gap={8}>
+        <Input
+          style={{ width: '100%' }}
+          aria-label="M3U 订阅地址"
+          placeholder="M3U 订阅地址，如 https://example.com/list.m3u"
+          value={url}
+          maxLength={500}
+          disabled={!!initial}
+          title={initial ? '地址不可修改；如需更换请删除后重新添加' : undefined}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <Input
+          style={{ width: '100%' }}
+          aria-label="直播源名称（可选）"
+          placeholder="名称（可选），如 我的频道列表"
+          value={name}
+          maxLength={50}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          style={{ width: '100%' }}
+          aria-label="EPG 节目单地址（可选）"
+          placeholder="EPG 节目单地址（可选，XMLTV xml/xml.gz）"
+          value={epg}
+          maxLength={500}
+          onChange={(e) => setEpg(e.target.value)}
+        />
+        <Flex gap={8} justify="flex-end">
+          <Button type="default" size="small" onClick={onCancel}>
+            取消
+          </Button>
+          <Button type="primary" size="small" onClick={submit}>
+            添加
+          </Button>
+        </Flex>
+      </Flex>
+    </Card>
   );
 }

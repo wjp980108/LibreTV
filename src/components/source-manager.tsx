@@ -1,29 +1,62 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Drawer } from './drawer';
-import { ConfirmDialog } from './confirm-dialog';
-import { Dropdown, type DropdownOption } from './dropdown';
-import { Icon, type IconName } from './icon';
-import { LiveSourceManager } from './live-source-manager';
 import {
-  HealthBadge,
-  SearchInput,
-  SectionTitle,
-  SelectRow,
-  TestBadge,
-  ToggleRow,
+  LinkOutlined,
+  SettingOutlined,
+  DownloadOutlined,
+  PlusOutlined,
+  SearchOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  ClockCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import {
+  Button,
+  Checkbox,
+  Modal,
+  Input,
+  Select,
+  Drawer,
   Switch,
-  useSourceTests,
-  type TestState,
-} from './settings-shared';
-import { loadCacheSettings, saveCacheSettings, getCacheSummary, clearVideoCache, type CacheSummary } from '@/lib/video-cache';
-import { EmptyState, Spinner } from './states';
+  Segmented,
+  Upload,
+  Empty,
+  Space,
+  Typography,
+  Spin,
+  Flex,
+  Form,
+  Progress,
+  Layout,
+  Tag,
+  Card,
+} from 'antd';
+import type { DefaultOptionType } from 'antd/es/select';
+
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import { LiveSourceManager } from './live-source-manager';
+import { HealthBadge, TestBadge, useSourceTests, type TestState } from './settings-shared';
+import {
+  loadCacheSettings,
+  saveCacheSettings,
+  getCacheSummary,
+  clearVideoCache,
+  type CacheSummary,
+} from '@/lib/video-cache';
 import { useSourceProbe } from './use-source-probe';
-import { allLiveSources, isSourceDisabled, keyBelongsToSubscription, resolveSource, subKeyPrefix, useAppStore } from '@/lib/store';
+import {
+  allLiveSources,
+  isSourceDisabled,
+  keyBelongsToSubscription,
+  resolveSource,
+  subKeyPrefix,
+  useAppStore,
+} from '@/lib/store';
 import type { SourceConfig } from '@/lib/types';
 import { useToast } from './toast';
-import { formatRelativeTime, hostnameOf, validateSourceUrl, cn } from '@/lib/utils';
+import { formatRelativeTime, hostnameOf, validateSourceUrl } from '@/lib/utils';
 import { exportConfig, importConfig } from '@/lib/db';
 import { PERSIST_KEY } from '@/lib/persist-storage';
 import { copyToClipboard } from '@/lib/clipboard';
@@ -42,10 +75,14 @@ import { describeParseStats } from '@/lib/tvbox-parser';
 type PrimaryTab = 'sources' | 'prefs' | 'data';
 type SecondaryTab = 'vod' | 'live' | 'subs' | 'playback' | 'image' | 'home' | 'io';
 
-const PRIMARY_TABS: { id: PrimaryTab; label: string; icon: IconName }[] = [
-  { id: 'sources', label: '源管理', icon: 'link' },
-  { id: 'prefs', label: '偏好设置', icon: 'gear' },
-  { id: 'data', label: '数据', icon: 'download' },
+const PRIMARY_TABS: { id: PrimaryTab; label: string; icon: ReactNode }[] = [
+  { id: 'sources', label: '源管理', icon: <LinkOutlined style={{ fontSize: 14 }} aria-hidden /> },
+  {
+    id: 'prefs',
+    label: '偏好设置',
+    icon: <SettingOutlined style={{ fontSize: 14 }} aria-hidden />,
+  },
+  { id: 'data', label: '数据', icon: <DownloadOutlined style={{ fontSize: 14 }} aria-hidden /> },
 ];
 
 const SECONDARY_TABS: Record<PrimaryTab, { id: SecondaryTab; label: string }[]> = {
@@ -114,95 +151,66 @@ export function SourceManagerDrawer({ open, onClose }: { open: boolean; onClose:
       open={open}
       onClose={onClose}
       title="设置"
-      resetScrollKey={current}
-      subheader={
-        <div className="space-y-2">
-          <TabRow tabs={PRIMARY_TABS} value={primary} onChange={setPrimary} variant="primary" ariaLabel="设置分类" />
-          {/* 分组下只有一项时无需二级导航，直接展示该面板 */}
-          {SECONDARY_TABS[primary].length > 1 && (
-            <TabRow
-              tabs={SECONDARY_TABS[primary]}
-              value={current}
-              onChange={(id) => setSecondary((prev) => ({ ...prev, [primary]: id }))}
-              variant="secondary"
-              ariaLabel="设置项"
-            />
-          )}
-        </div>
-      }
-    >
-      {current === 'vod' && <VodSourcesPanel />}
-      {current === 'live' && <LiveSourceManager />}
-      {current === 'playback' && <PlaybackPanel />}
-      {current === 'image' && <ImagePanel />}
-      {current === 'home' && <HomePanel />}
-      {current === 'subs' && <SourceSubscriptions />}
-      {current === 'io' && <ConfigIoPanel />}
-    </Drawer>
-  );
-}
-
-/** 一级/二级导航条（role=tablist，左右方向键切换） */
-function TabRow<T extends string>({
-  tabs,
-  value,
-  onChange,
-  variant,
-  ariaLabel,
-}: {
-  tabs: { id: T; label: string; icon?: IconName }[];
-  value: T;
-  onChange: (id: T) => void;
-  variant: 'primary' | 'secondary';
-  ariaLabel: string;
-}) {
-  const move = (dir: 1 | -1) => {
-    const idx = tabs.findIndex((t) => t.id === value);
-    onChange(tabs[(idx + dir + tabs.length) % tabs.length].id);
-  };
-  return (
-    <div
-      role="tablist"
-      aria-label={ariaLabel}
-      className={cn('flex w-full gap-1', variant === 'primary' && 'p-0.5 bg-chip rounded-lg')}
-      onKeyDown={(e) => {
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          move(1);
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          move(-1);
-        }
+      destroyOnHidden
+      closable={{ placement: 'end' }}
+      styles={{
+        body: { display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' },
       }}
+      size={448}
     >
-      {tabs.map((t) => {
-        const active = t.id === value;
-        return (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={active}
-            className={cn(
-              // 两级导航都等宽撑满一行（原先二级按内容宽度、超宽才横滚，与一级不一致）
-              'flex-1 min-w-0 inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md transition-colors',
-              variant === 'primary'
-                ? cn(
-                    'px-2 py-1.5 text-xs',
-                    active ? 'bg-surface-raised text-accent font-medium shadow-xs' : 'text-muted hover:text-content'
-                  )
-                : cn(
-                    'px-2.5 py-1 text-xs',
-                    active ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-content hover:bg-hover'
-                  )
-            )}
-            onClick={() => onChange(t.id)}
-          >
-            {t.icon && <Icon name={t.icon} className="w-3.5 h-3.5" />}
-            {t.label}
-          </button>
-        );
-      })}
-    </div>
+      <Flex
+        vertical
+        gap={8}
+        style={{
+          borderBottomWidth: 1,
+          borderStyle: 'solid',
+          borderColor: 'var(--ant-color-border-secondary)',
+          paddingInline: 16,
+          paddingBlock: 12,
+          flexShrink: 0,
+        }}
+      >
+        <Segmented<PrimaryTab>
+          block
+          options={PRIMARY_TABS.map((t) => ({
+            value: t.id,
+            label: t.label,
+            icon: t.icon,
+          }))}
+          value={primary}
+          onChange={setPrimary}
+          aria-label="设置分类"
+        />
+        {/* 分组下只有一项时无需二级导航，直接展示该面板 */}
+        {SECONDARY_TABS[primary].length > 1 && (
+          <Segmented<SecondaryTab>
+            block
+            options={SECONDARY_TABS[primary].map((t) => ({ value: t.id, label: t.label }))}
+            value={current}
+            onChange={(id) => setSecondary((prev) => ({ ...prev, [primary]: id }))}
+            aria-label="设置项"
+          />
+        )}
+      </Flex>
+      <Layout.Content
+        style={{
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          padding: 16,
+          flex: '1 1 0%',
+        }}
+        key={current}
+      >
+        {current === 'vod' && <VodSourcesPanel />}
+        {current === 'live' && <LiveSourceManager />}
+        {current === 'playback' && <PlaybackPanel />}
+        {current === 'image' && <ImagePanel />}
+        {current === 'home' && <HomePanel />}
+        {current === 'subs' && <SourceSubscriptions />}
+        {current === 'io' && <ConfigIoPanel />}
+      </Layout.Content>
+    </Drawer>
   );
 }
 
@@ -229,14 +237,21 @@ function VodSourcesPanel() {
   const { progress, probe, cancel, isProbing } = useSourceProbe();
 
   const envKeys = useMemo(() => new Set(store.envSources.map((s) => s.key)), [store.envSources]);
-  const all = useMemo(() => [...store.envSources, ...store.customAPIs], [store.envSources, store.customAPIs]);
+  const all = useMemo(
+    () => [...store.envSources, ...store.customAPIs],
+    [store.envSources, store.customAPIs],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return all.filter((s) => {
       const fromSub = s.key.startsWith('sub_');
       // 已启用 = 勾选中且当前未被自动停用（即真正在参与搜索的源）
-      if (filter === 'enabled' && !(store.selectedKeys.includes(s.key) && !isSourceDisabled(store, s.key))) return false;
+      if (
+        filter === 'enabled' &&
+        !(store.selectedKeys.includes(s.key) && !isSourceDisabled(store, s.key))
+      )
+        return false;
       if (filter === 'disabled' && !isSourceDisabled(store, s.key)) return false;
       if (filter === 'sub' && !fromSub) return false;
       // 手动添加 = 既非订阅导入、也非部署者预置
@@ -247,7 +262,8 @@ function VodSourcesPanel() {
   }, [all, query, filter, store, envKeys]);
 
   const visibleKeys = filtered.map((s) => s.key);
-  const allSelected = visibleKeys.length > 0 && visibleKeys.every((k) => store.selectedKeys.includes(k));
+  const allSelected =
+    visibleKeys.length > 0 && visibleKeys.every((k) => store.selectedKeys.includes(k));
 
   const toggleAll = () => {
     if (allSelected) {
@@ -258,7 +274,8 @@ function VodSourcesPanel() {
     const eligible = filtered.filter((s) => !(s.isAdult && store.yellowFilter)).map((s) => s.key);
     const skipped = filtered.length - eligible.length;
     store.setSelectedKeys([...new Set([...store.selectedKeys, ...eligible])]);
-    if (skipped > 0) toast(`已启用 ${eligible.length} 个；${skipped} 个成人源因过滤开启被跳过`, 'info');
+    if (skipped > 0)
+      toast(`已启用 ${eligible.length} 个；${skipped} 个成人源因过滤开启被跳过`, 'info');
   };
 
   const runAll = async () => {
@@ -268,7 +285,10 @@ function VodSourcesPanel() {
     }
     const result = await probe(filtered.map((s) => ({ key: s.key, url: s.url })));
     if (!result) return; // 被取消则无汇总
-    toast(`测活完成：${result.ok}/${result.total} 个可用`, result.ok === result.total ? 'success' : 'info');
+    toast(
+      `测活完成：${result.ok}/${result.total} 个可用`,
+      result.ok === result.total ? 'success' : 'info',
+    );
   };
 
   /** 一键恢复被自动停用的源（仅「已停用」筛选下提供） */
@@ -282,17 +302,25 @@ function VodSourcesPanel() {
   const empty = store.envSources.length === 0 && store.customAPIs.length === 0;
 
   return (
-    <section>
-      <SectionTitle
-        title="点播源"
-        hint={empty ? undefined : `共 ${all.length} 个 · 已启用 ${all.filter((s) => store.selectedKeys.includes(s.key)).length}`}
-        extra={
-          <button className="btn-primary btn-sm" onClick={() => setEditing('__new__')}>
-            <Icon name="plus" className="w-3.5 h-3.5" />
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'点播源'}
+          </Typography.Title>
+          <Typography.Text type="secondary" ellipsis>
+            {empty
+              ? undefined
+              : `共 ${all.length} 个 · 已启用 ${all.filter((s) => store.selectedKeys.includes(s.key)).length}`}
+          </Typography.Text>
+        </Flex>
+        {
+          <Button type="primary" size="small" onClick={() => setEditing('__new__')}>
+            <PlusOutlined style={{ fontSize: 14 }} aria-hidden />
             添加 API
-          </button>
+          </Button>
         }
-      />
+      </Flex>
 
       <SourceForm
         visible={editing === '__new__'}
@@ -304,77 +332,133 @@ function VodSourcesPanel() {
       />
 
       {empty && editing !== '__new__' ? (
-        <EmptyState
-          icon="link"
-          title="还没有添加任何点播源"
-          description="添加一个 Apple CMS 采集站 API 即可开始搜索影片；也可到「数据源订阅」一次导入点播源与直播源"
-          action={
-            <button className="btn-primary btn-sm" onClick={() => setEditing('__new__')}>
-              添加第一个点播源
-            </button>
+        <Empty
+          description={
+            <Space orientation="vertical">
+              <Typography.Text>{'还没有添加任何点播源'}</Typography.Text>
+              <Typography.Text type="secondary">
+                {
+                  '添加一个 Apple CMS 采集站 API 即可开始搜索影片；也可到「数据源订阅」一次导入点播源与直播源'
+                }
+              </Typography.Text>
+            </Space>
           }
-        />
+        >
+          {
+            <Button type="primary" size="small" onClick={() => setEditing('__new__')}>
+              添加第一个点播源
+            </Button>
+          }
+        </Empty>
       ) : (
         <>
-          <div className="space-y-2 mb-3">
-            <SearchInput value={query} onChange={setQuery} placeholder="搜索名称或地址" />
-            <div className="flex flex-wrap items-center gap-1">
+          <Flex style={{ marginBottom: 12 }} vertical gap={8}>
+            <Input
+              allowClear
+              prefix={<SearchOutlined style={{ fontSize: 16 }} aria-hidden />}
+              aria-label={'搜索名称或地址'}
+              placeholder={'搜索名称或地址'}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <Flex wrap align="center" gap={4}>
               {VOD_FILTERS.map((f) => (
-                <button
+                <Tag.CheckableTag
                   key={f.id}
-                  className={cn(
-                    'chip',
-                    filter === f.id ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-content hover:bg-hover'
-                  )}
-                  onClick={() => setFilter(f.id)}
-                  aria-pressed={filter === f.id}
+
+                  onChange={() => setFilter(f.id)}
+                  checked={filter === f.id}
                 >
                   {f.label}
-                </button>
+                </Tag.CheckableTag>
               ))}
-              <span className="ml-auto text-[11px] text-faint">显示 {filtered.length} 个</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button className="btn-ghost btn-sm" onClick={toggleAll} disabled={filtered.length === 0}>
+              <Typography.Text
+                type="secondary"
+                style={{
+                  marginInlineStart: 'auto',
+                  fontSize: '11px',
+                }}
+              >
+                显示 {filtered.length} 个
+              </Typography.Text>
+            </Flex>
+            <Flex wrap align="center" gap={8}>
+              <Button
+                type="default"
+                size="small"
+
+                onClick={toggleAll}
+                disabled={filtered.length === 0}
+              >
                 {allSelected ? '全部停用' : '全部启用'}
-              </button>
-              <button
-                className="btn-ghost btn-sm"
+              </Button>
+              <Button
+                type="default"
+                size="small"
+
                 onClick={runAll}
                 disabled={filtered.length === 0}
               >
                 {isProbing ? '取消测活' : '批量测活'}
-              </button>
+              </Button>
               {/* 查看「已停用」时提供一键恢复，省去逐个点击 */}
               {filter === 'disabled' && (
-                <button className="btn-ghost btn-sm" onClick={restoreAll} disabled={filtered.length === 0}>
+                <Button
+                  type="default"
+                  size="small"
+
+                  onClick={restoreAll}
+                  disabled={filtered.length === 0}
+                >
                   全部恢复
-                </button>
+                </Button>
               )}
-            </div>
+            </Flex>
             {progress && (
-              <div className="flex items-center gap-2 text-[11px] text-muted">
-                <div className="flex-1 h-1.5 bg-chip rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent transition-[width] duration-200"
-                    style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
-                  />
-                </div>
-                <span className="tabular-nums shrink-0">
+              <Flex
+                style={{ fontSize: '11px', color: 'var(--ant-color-text-secondary)' }}
+                align="center"
+                gap={8}
+              >
+                <Progress
+                  style={{ flex: 1, minWidth: 0 }}
+                  percent={Math.round((progress.done / progress.total) * 100)}
+                  showInfo={false}
+                  size="small"
+                />
+                <Typography.Text style={{ fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
                   {progress.done}/{progress.total} · 可用 {progress.ok}
                   {formatEta(progress.done, progress.total, progress.startedAt)}
-                </span>
-                <button className="btn-ghost btn-sm shrink-0" onClick={cancel}>
+                </Typography.Text>
+                <Button
+                  style={{ flexShrink: 0 }}
+                  type="default"
+                  size="small"
+
+                  onClick={cancel}
+                >
                   取消
-                </button>
-              </div>
+                </Button>
+              </Flex>
             )}
-          </div>
+          </Flex>
 
           {filtered.length === 0 ? (
-            <EmptyState variant="plain" title="没有符合条件的源" />
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <Space orientation="vertical">
+                  <Typography.Text>{'没有符合条件的源'}</Typography.Text>
+                </Space>
+              }
+            ></Empty>
           ) : (
-            <ul className="space-y-2">
+            <Flex
+              style={{ margin: 0, padding: 0, listStyle: 'none' }}
+              vertical
+              gap={8}
+              component="ul"
+            >
               {filtered.map((source) => (
                 <VodSourceRow
                   key={source.key}
@@ -392,26 +476,28 @@ function VodSourcesPanel() {
                     runTest(source.key, async () => {
                       const r = await api.testSource(source.url);
                       // 手动测试也写入健康度，与搜索 / 批量测活共用同一份模型（不再存在两套健康度）
-                      useAppStore.getState().recordSourceHealth([
-                        { sourceKey: source.key, ok: r.ok, ms: r.ms, error: r.error, list: [] },
-                      ]);
+                      useAppStore
+                        .getState()
+                        .recordSourceHealth([
+                          { sourceKey: source.key, ok: r.ok, ms: r.ms, error: r.error, list: [] },
+                        ]);
                       return r;
                     })
                   }
                 />
               ))}
-            </ul>
+            </Flex>
           )}
         </>
       )}
-    </section>
+    </Flex>
   );
 }
 
 function formatEta(done: number, total: number, startedAt: number): string {
   if (done <= 0 || done >= total) return '';
   const elapsed = Date.now() - startedAt;
-  const remainSec = Math.max(0, Math.round((elapsed / done) * (total - done) / 1000));
+  const remainSec = Math.max(0, Math.round(((elapsed / done) * (total - done)) / 1000));
   return remainSec > 0 ? ` · 约 ${remainSec}s` : '';
 }
 
@@ -458,99 +544,133 @@ function VodSourceRow({
 
   if (editing) {
     return (
-      <li className="bg-card rounded-lg p-3">
-        <SourceForm visible initial={api} onCancel={onCancelEdit} onSubmit={onUpdate} />
+      <li>
+        <Card size="small">
+          <SourceForm visible initial={api} onCancel={onCancelEdit} onSubmit={onUpdate} />
+        </Card>
       </li>
     );
   }
 
   return (
-    <li
-      className={cn(
-        'bg-card rounded-lg p-3 transition-colors hover:bg-hover/50',
-        // 未勾选 = 不参与搜索：整行淡显，长列表里才能一眼扫出哪些没启用
-        !selected && 'opacity-70'
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          className="h-4 w-4 accent-accent shrink-0"
-          checked={selected}
-          onChange={() => useAppStore.getState().toggleSourceSelected(api.key)}
-          disabled={adultBlocked}
-          title={adultBlocked ? '成人内容过滤开启中，需先关闭过滤才能启用此源' : undefined}
-          aria-label={`选择 ${api.name}`}
-        />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-content truncate">
-            {api.name}
-            {api.isAdult && <span className="text-pink-400 text-xs ml-1">(18+)</span>}
-            {isEnv && (
-              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-chip text-faint align-middle">
-                部署者预置
-              </span>
-            )}
-            {fromSubscription && (
-              <span
-                className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent align-middle"
-                title="来自数据源订阅，重新同步时此源的名称/地址会以订阅内容为准"
-              >
-                订阅
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-faint truncate">{api.url}</div>
-        </div>
-        <HealthBadge sourceKey={api.key} />
-        <TestBadge
-          state={testState}
-          onTest={onTest}
-          title="测试可用性（搜索耗时与结果量）"
-          badgeWhenOk={({ ms }) => `✓ ${ms}ms`}
-        />
-        {!isEnv &&
-          (fromSubscription ? (
-            // 订阅源由远端列表管理：编辑会被下次同步覆盖、删除会复活，故置为禁用态并说明去处
-            <>
-              <button
-                className="rounded-md p-2 text-muted/30 cursor-not-allowed shrink-0"
-                disabled
-                aria-label="订阅源不可单独编辑"
-                title="该源来自订阅，修改会在下次同步时被覆盖；请修改远端订阅后重新同步"
-              >
-                <Icon name="edit" className="w-4 h-4" />
-              </button>
-              <button
-                className="rounded-md p-2 text-muted/30 cursor-not-allowed shrink-0"
-                disabled
-                aria-label="订阅源不可单独删除"
-                title="该源来自订阅，单独删除会在下次同步时恢复；请到「数据源订阅」删除整个订阅"
-              >
-                <Icon name="trash" className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="rounded-md p-2 text-muted transition-colors hover:bg-hover hover:text-accent shrink-0"
-                onClick={() => onEdit(api.key)}
-                aria-label="编辑"
-                title="编辑"
-              >
-                <Icon name="edit" className="w-4 h-4" />
-              </button>
-              <button
-                className="rounded-md p-2 text-muted transition-colors hover:bg-hover hover:text-danger shrink-0"
-                onClick={remove}
-                aria-label="删除"
-                title="移除（可在提示中撤销）"
-              >
-                <Icon name="trash" className="w-4 h-4" />
-              </button>
-            </>
-          ))}
-      </div>
+    <li>
+      <Card size="small" style={{ ...(!selected ? { opacity: 0.7 } : {}) }}>
+        <Flex align="center" gap={8}>
+          <Checkbox
+            style={{ height: 16, width: 16, flexShrink: 0 }}
+
+            checked={selected}
+            onChange={() => useAppStore.getState().toggleSourceSelected(api.key)}
+            disabled={adultBlocked}
+            title={adultBlocked ? '成人内容过滤开启中，需先关闭过滤才能启用此源' : undefined}
+            aria-label={`选择 ${api.name}`}
+          />
+          <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+            <Flex
+              vertical
+              style={{
+                fontSize: 'var(--ant-font-size)',
+                fontWeight: 500,
+                color: 'var(--ant-color-text)',
+                minWidth: 0,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {api.name}
+              {api.isAdult && (
+                <Typography.Text
+                  style={{
+                    color: 'var(--ant-magenta-6)',
+                    fontSize: 'var(--ant-font-size-sm)',
+                    marginInlineStart: 4,
+                  }}
+                >
+                  (18+)
+                </Typography.Text>
+              )}
+              {isEnv && <Tag style={{ marginInlineStart: 6 }}>部署者预置</Tag>}
+              {fromSubscription && (
+                <Tag
+                  color="gold"
+                  style={{ marginInlineStart: 6 }}
+                  title="来自数据源订阅，重新同步时此源的名称/地址会以订阅内容为准"
+                >
+                  订阅
+                </Tag>
+              )}
+            </Flex>
+            <Typography.Text
+              type="secondary"
+              ellipsis
+              style={{
+                fontSize: 'var(--ant-font-size-sm)',
+
+                minWidth: 0,
+              }}
+            >
+              {api.url}
+            </Typography.Text>
+          </Flex>
+          <HealthBadge sourceKey={api.key} />
+          <TestBadge
+            state={testState}
+            onTest={onTest}
+            title="测试可用性（搜索耗时与结果量）"
+            badgeWhenOk={({ ms }) => `✓ ${ms}ms`}
+          />
+          {!isEnv &&
+            (fromSubscription ? (
+              // 订阅源由远端列表管理：编辑会被下次同步覆盖、删除会复活，故置为禁用态并说明去处
+              <>
+                <Button
+                  style={{ flexShrink: 0 }}
+                  type="text"
+
+                  disabled
+                  aria-label="订阅源不可单独编辑"
+                  title="该源来自订阅，修改会在下次同步时被覆盖；请修改远端订阅后重新同步"
+                >
+                  <EditOutlined style={{ fontSize: 16 }} aria-hidden />
+                </Button>
+                <Button
+                  style={{ flexShrink: 0 }}
+                  type="text"
+
+                  disabled
+                  aria-label="订阅源不可单独删除"
+                  title="该源来自订阅，单独删除会在下次同步时恢复；请到「数据源订阅」删除整个订阅"
+                >
+                  <DeleteOutlined style={{ fontSize: 16 }} aria-hidden />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  style={{ flexShrink: 0 }}
+                  type="text"
+
+                  onClick={() => onEdit(api.key)}
+                  aria-label="编辑"
+                  title="编辑"
+                >
+                  <EditOutlined style={{ fontSize: 16 }} aria-hidden />
+                </Button>
+                <Button
+                  style={{ flexShrink: 0 }}
+                  type="text"
+
+                  onClick={remove}
+                  aria-label="删除"
+                  title="移除（可在提示中撤销）"
+                >
+                  <DeleteOutlined style={{ fontSize: 16 }} aria-hidden />
+                </Button>
+              </>
+            ))}
+        </Flex>
+      </Card>
     </li>
   );
 }
@@ -563,57 +683,109 @@ function PlaybackPanel() {
   const [clearMarksOpen, setClearMarksOpen] = useState(false);
   const markCount = Object.keys(store.skipMarks).length;
   return (
-    <section>
-      <SectionTitle title="播放与过滤" />
-      <div className="space-y-3">
-        <ToggleRow
-          label="广告切片过滤"
-          description="剔除播放列表中的广告分片段落（按分片 URL 特征、片头插入与长片间超短中插识别，不动 DISCONTINUITY 时间轴）"
-          checked={store.adFilter}
-          onChange={(v) => store.updateSettings({ adFilter: v })}
-        />
-        <ToggleRow
-          label="自动连播"
-          description="单集播放结束后自动播放下一集"
-          checked={store.autoplayNext}
-          onChange={(v) => store.updateSettings({ autoplayNext: v })}
-        />
-        <ToggleRow
-          label="自动跳过片段"
-          description="命中片头/中段标记时跳到片段末尾，命中片尾标记时结束本集（是否连播下一集由「自动连播」决定）；关闭后三类都只显示跳过按钮（标记在播放页「跳过标记」中设置）"
-          checked={store.autoSkipSegments}
-          onChange={(v) => store.updateSettings({ autoSkipSegments: v })}
-        />
-      </div>
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'播放与过滤'}
+          </Typography.Title>
+        </Flex>
+      </Flex>
+      <Flex vertical gap={12}>
+        <Form.Item
+          layout="vertical"
+          label={'广告切片过滤'}
+          extra={
+            '剔除播放列表中的广告分片段落（按分片 URL 特征、片头插入与长片间超短中插识别，不动 DISCONTINUITY 时间轴）'
+          }
+        >
+          <Switch
+            aria-label={'广告切片过滤'}
+            checked={store.adFilter}
+            onChange={(v) => store.updateSettings({ adFilter: v })}
+          />
+        </Form.Item>
+        <Form.Item layout="vertical" label={'自动连播'} extra={'单集播放结束后自动播放下一集'}>
+          <Switch
+            aria-label={'自动连播'}
+            checked={store.autoplayNext}
+            onChange={(v) => store.updateSettings({ autoplayNext: v })}
+          />
+        </Form.Item>
+        <Form.Item
+          layout="vertical"
+          label={'自动跳过片段'}
+          extra={
+            '命中片头/中段标记时跳到片段末尾，命中片尾标记时结束本集（是否连播下一集由「自动连播」决定）；关闭后三类都只显示跳过按钮（标记在播放页「跳过标记」中设置）'
+          }
+        >
+          <Switch
+            aria-label={'自动跳过片段'}
+            checked={store.autoSkipSegments}
+            onChange={(v) => store.updateSettings({ autoSkipSegments: v })}
+          />
+        </Form.Item>
+      </Flex>
 
       {markCount > 0 && (
-        <div className="flex items-center justify-between gap-3 pt-3 mt-3 border-t border-line">
-          <div className="min-w-0">
-            <div className="text-sm text-content">跳过片段标记</div>
-            <div className="text-xs text-faint">已记录 {markCount} 部；在播放页「跳过标记」中设置，可逐剧关闭</div>
-          </div>
-          <button className="btn-ghost btn-sm shrink-0" onClick={() => setClearMarksOpen(true)}>
+        <Flex
+          style={{
+            paddingTop: 12,
+            marginTop: 12,
+            borderTopWidth: 1,
+            borderStyle: 'solid',
+            borderColor: 'var(--ant-color-border-secondary)',
+          }}
+          align="center"
+          justify="space-between"
+          gap={12}
+        >
+          <Flex vertical style={{ minWidth: 0 }}>
+            <Typography.Text style={{ fontSize: 'var(--ant-font-size)' }}>
+              跳过片段标记
+            </Typography.Text>
+            <Typography.Text
+              type="secondary"
+              style={{
+                fontSize: 'var(--ant-font-size-sm)',
+              }}
+            >
+              已记录 {markCount} 部；在播放页「跳过标记」中设置，可逐剧关闭
+            </Typography.Text>
+          </Flex>
+          <Button
+            style={{ flexShrink: 0 }}
+            type="default"
+            size="small"
+
+            onClick={() => setClearMarksOpen(true)}
+          >
             清除全部
-          </button>
-        </div>
+          </Button>
+        </Flex>
       )}
 
-      <ConfirmDialog
+      <Modal
+        centered
+        width={420}
+        destroyOnHidden
+        closable={false}
+        cancelButtonProps={{ autoFocus: true }}
         open={clearMarksOpen}
-        danger
+        okButtonProps={{ danger: true }}
         title="清除全部跳过片段？"
-        message={`将删除已记录的 ${markCount} 部剧的跳过片段，之后播放不再自动跳过；可重新在播放页标记。`}
-        confirmLabel="清除全部"
+
+        okText="清除全部"
         onCancel={() => setClearMarksOpen(false)}
-        onConfirm={() => {
+        onOk={() => {
           store.clearAllSkipMarks();
           setClearMarksOpen(false);
           toast('已清除全部跳过片段标记', 'success');
         }}
-      />
+      >{`将删除已记录的 ${markCount} 部剧的跳过片段，之后播放不再自动跳过；可重新在播放页标记。`}</Modal>
 
       <VideoCachePanel />
-    </section>
+    </Flex>
   );
 }
 
@@ -638,23 +810,45 @@ function VideoCachePanel() {
   };
 
   return (
-    <div className="space-y-3 pt-3 mt-3 border-t border-line">
-      <ToggleRow
-        label="片段本地缓存"
-        description="暂停或观看时把后续分片缓存到浏览器本地，二次播放与断网卡顿时直接命中（存储于本机，不计入配置导出）"
-        checked={enabled}
-        onChange={(v) => {
-          const next = saveCacheSettings({ enabled: v });
-          setEnabled(next.enabled);
-        }}
-      />
-      <div className="flex items-center justify-between text-xs text-faint">
-        <span>
+    <Flex
+      style={{
+        paddingTop: 12,
+        marginTop: 12,
+        borderTopWidth: 1,
+        borderStyle: 'solid',
+        borderColor: 'var(--ant-color-border-secondary)',
+      }}
+      vertical
+      gap={12}
+    >
+      <Form.Item
+        layout="vertical"
+        label={'片段本地缓存'}
+        extra={
+          '暂停或观看时把后续分片缓存到浏览器本地，二次播放与断网卡顿时直接命中（存储于本机，不计入配置导出）'
+        }
+      >
+        <Switch
+          aria-label={'片段本地缓存'}
+          checked={enabled}
+          onChange={(v) => {
+            const next = saveCacheSettings({ enabled: v });
+            setEnabled(next.enabled);
+          }}
+        />
+      </Form.Item>
+      <Flex
+        style={{ fontSize: 'var(--ant-font-size-sm)', color: 'var(--ant-color-text-tertiary)' }}
+        align="center"
+        justify="space-between"
+      >
+        <Typography.Text>
           已缓存 {summary.segments} 个分片 · {formatBytes(summary.bytes)} · {summary.episodes} 集
-        </span>
-        <button
-          type="button"
-          className="px-2 py-1 rounded bg-chip text-content hover:bg-hover transition-colors disabled:opacity-50"
+        </Typography.Text>
+        <Button
+          type="text"
+          htmlType="button"
+
           disabled={clearing || summary.segments === 0}
           onClick={async () => {
             setClearing(true);
@@ -664,9 +858,9 @@ function VideoCachePanel() {
           }}
         >
           清理缓存
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -679,23 +873,41 @@ function ImagePanel() {
     custom: '使用你填写的模板转发封面图',
   };
   return (
-    <section>
-      <SectionTitle title="封面图加载" />
-      <div className="space-y-2">
-        <SelectRow
-          label="加载方式"
-          value={mode}
-          description={description[mode]}
-          onChange={(v) => store.updateSettings({ imageProxyMode: v as 'direct' | 'proxy' | 'custom' })}
-          options={[
-            { value: 'direct', label: '直连优先', hint: '最省服务器流量' },
-            { value: 'proxy', label: '内置代理', hint: '最稳定' },
-            { value: 'custom', label: '自定义', hint: '自建转发模板' },
-          ]}
-        />
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'封面图加载'}
+          </Typography.Title>
+        </Flex>
+      </Flex>
+      <Flex vertical gap={8}>
+        <Form.Item layout="vertical" label={'加载方式'} extra={description[mode]}>
+          <Select
+            aria-label={'加载方式'}
+            value={mode}
+            onChange={(v) =>
+              store.updateSettings({ imageProxyMode: v as 'direct' | 'proxy' | 'custom' })
+            }
+            options={[
+              { value: 'direct', label: '直连优先', hint: '最省服务器流量' },
+              { value: 'proxy', label: '内置代理', hint: '最稳定' },
+              { value: 'custom', label: '自定义', hint: '自建转发模板' },
+            ]}
+            popupMatchSelectWidth={false}
+            optionRender={(option) => (
+              <Space orientation="vertical" size={0}>
+                <Typography.Text>{option.label}</Typography.Text>
+                {option.data.hint && (
+                  <Typography.Text type="secondary">{option.data.hint}</Typography.Text>
+                )}
+              </Space>
+            )}
+          />
+        </Form.Item>
         {mode === 'custom' && <CustomProxyInput />}
-      </div>
-    </section>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -718,8 +930,8 @@ function CustomProxyInput() {
   }, [draft, value, updateSettings]);
 
   return (
-    <input
-      className="input w-full"
+    <Input
+      style={{ width: '100%' }}
       aria-label="自定义代理模板"
       placeholder="代理模板，如 https://p.example.com/?url={url}"
       value={draft}
@@ -731,33 +943,54 @@ function CustomProxyInput() {
 function HomePanel() {
   const store = useAppStore();
   return (
-    <section>
-      <SectionTitle title="首页与内容过滤" />
-      <div className="space-y-3">
-        <ToggleRow
-          label="成人内容过滤"
-          description="过滤“伦理片”等分类的结果"
-          checked={store.yellowFilter}
-          onChange={(v) => store.updateSettings({ yellowFilter: v })}
-        />
-        <ToggleRow
-          label="首页推荐"
-          description="在首页展示推荐内容"
-          checked={store.doubanEnabled}
-          onChange={(v) => store.updateSettings({ doubanEnabled: v })}
-        />
-        <SelectRow
-          label="推荐数据源"
-          value={store.recommendSource}
-          onChange={(v) => store.updateSettings({ recommendSource: v as 'douban' | 'bangumi' | 'hot-list' })}
-          options={[
-            { value: 'douban', label: '豆瓣', hint: '热门电影与剧集' },
-            { value: 'bangumi', label: 'Bangumi', hint: '每日新番放送（免 key）' },
-            { value: 'hot-list', label: '影视榜单', hint: '豆瓣周榜 / 百度热播' },
-          ]}
-        />
-      </div>
-    </section>
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'首页与内容过滤'}
+          </Typography.Title>
+        </Flex>
+      </Flex>
+      <Flex vertical gap={12}>
+        <Form.Item layout="vertical" label={'成人内容过滤'} extra={'过滤“伦理片”等分类的结果'}>
+          <Switch
+            aria-label={'成人内容过滤'}
+            checked={store.yellowFilter}
+            onChange={(v) => store.updateSettings({ yellowFilter: v })}
+          />
+        </Form.Item>
+        <Form.Item layout="vertical" label={'首页推荐'} extra={'在首页展示推荐内容'}>
+          <Switch
+            aria-label={'首页推荐'}
+            checked={store.doubanEnabled}
+            onChange={(v) => store.updateSettings({ doubanEnabled: v })}
+          />
+        </Form.Item>
+        <Form.Item layout="vertical" label={'推荐数据源'} extra={undefined}>
+          <Select
+            aria-label={'推荐数据源'}
+            value={store.recommendSource}
+            onChange={(v) =>
+              store.updateSettings({ recommendSource: v as 'douban' | 'bangumi' | 'hot-list' })
+            }
+            options={[
+              { value: 'douban', label: '豆瓣', hint: '热门电影与剧集' },
+              { value: 'bangumi', label: 'Bangumi', hint: '每日新番放送（免 key）' },
+              { value: 'hot-list', label: '影视榜单', hint: '豆瓣周榜 / 百度热播' },
+            ]}
+            popupMatchSelectWidth={false}
+            optionRender={(option) => (
+              <Space orientation="vertical" size={0}>
+                <Typography.Text>{option.label}</Typography.Text>
+                {option.data.hint && (
+                  <Typography.Text type="secondary">{option.data.hint}</Typography.Text>
+                )}
+              </Space>
+            )}
+          />
+        </Form.Item>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -767,7 +1000,7 @@ function HomePanel() {
  * 自动刷新周期选项。值统一用字符串（Dropdown 的 value 是 string），
  * `off` = 纯手动，保持这个功能对存量用户的默认无感。
  */
-const REFRESH_OPTIONS: DropdownOption[] = [
+const REFRESH_OPTIONS: DefaultOptionType[] = [
   { value: 'off', label: '手动', hint: '只在点 ⟳ 时同步' },
   { value: '1', label: '每天', hint: '打开站点时检查' },
   { value: '3', label: '每 3 天' },
@@ -803,7 +1036,10 @@ function SourceSubscriptions() {
           : stats?.format === 'source-catalog'
             ? '（接口源列表）'
             : '';
-      toast(`已同步 ${vodCount} 个点播源、${liveCount} 个直播源${formatLabel}${detail ? `；${detail}` : ''}`, 'success');
+      toast(
+        `已同步 ${vodCount} 个点播源、${liveCount} 个直播源${formatLabel}${detail ? `；${detail}` : ''}`,
+        'success',
+      );
       setSubUrl('');
     } catch (err) {
       toast(err instanceof Error ? err.message : '订阅同步失败', 'error');
@@ -842,7 +1078,10 @@ function SourceSubscriptions() {
     const seen = new Set<string>();
     const sources = store.selectedKeys
       .map((key) => resolveSource(store, key))
-      .filter((s): s is SourceConfig => !!s && validateSourceUrl(s.url) && !isSourceDisabled(store, s.key))
+      .filter(
+        (s): s is SourceConfig =>
+          !!s && validateSourceUrl(s.url) && !isSourceDisabled(store, s.key),
+      )
       .filter((s) => {
         const key = s.url.replace(/\/+$/, '');
         if (seen.has(key)) return false;
@@ -868,9 +1107,16 @@ function SourceSubscriptions() {
 
     setPublishing(true);
     try {
-      const result = await api.publishSourceList({ name: 'LibreTV-SourceList', sources, liveSources });
+      const result = await api.publishSourceList({
+        name: 'LibreTV-SourceList',
+        sources,
+        liveSources,
+      });
       setPublished(result);
-      toast(`已发布 ${result.sources} 个点播源、${result.liveSources} 个直播源到 ${result.provider}`, 'success');
+      toast(
+        `已发布 ${result.sources} 个点播源、${result.liveSources} 个直播源到 ${result.provider}`,
+        'success',
+      );
     } catch (err) {
       toast(err instanceof Error ? err.message : '发布失败', 'error');
     } finally {
@@ -907,7 +1153,13 @@ function SourceSubscriptions() {
       })
       .map(({ name, url, epg }) => ({ name: name || hostnameOf(url), url, epg }));
 
-    const payload = { name: 'LibreTV-SourceList', version: 2, exportedAt: Date.now(), sources, liveSources };
+    const payload = {
+      name: 'LibreTV-SourceList',
+      version: 2,
+      exportedAt: Date.now(),
+      sources,
+      liveSources,
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -915,7 +1167,10 @@ function SourceSubscriptions() {
     a.download = `LibreTV-SourceList_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(`已导出 ${sources.length} 个点播源、${liveSources.length} 个直播源，托管后即可被他人订阅`, 'success');
+    toast(
+      `已导出 ${sources.length} 个点播源、${liveSources.length} 个直播源，托管后即可被他人订阅`,
+      'success',
+    );
   };
 
   const deleteImpact = (url: string) => {
@@ -927,67 +1182,113 @@ function SourceSubscriptions() {
   };
 
   return (
-    <section>
-      <SectionTitle
-        title="数据源订阅 / 分享"
-        extra={
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              className="btn-ghost btn-sm"
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'数据源订阅 / 分享'}
+          </Typography.Title>
+        </Flex>
+        {
+          <Flex style={{ flexShrink: 0 }} align="center" gap={6}>
+            <Button
+              type="default"
+              size="small"
+
               onClick={exportSources}
               disabled={
-                store.customAPIs.length + store.envSources.length + store.liveSubscriptions.length + store.liveEnvSources.length ===
+                store.customAPIs.length +
+                  store.envSources.length +
+                  store.liveSubscriptions.length +
+                  store.liveEnvSources.length ===
                 0
               }
             >
               导出数据源
-            </button>
-            <button
-              className="btn-ghost btn-sm"
+            </Button>
+            <Button
+              type="default"
+              size="small"
+
               onClick={() => void publish()}
               disabled={publishing}
               title="把当前已勾选启用的源上传到公开粘贴板，生成可直接订阅的链接"
             >
               {publishing ? '发布中…' : '发布为链接'}
-            </button>
-          </div>
+            </Button>
+          </Flex>
         }
-      />
+      </Flex>
 
       {/* 发布结果：链接公开可读、粘贴板也可能随时清理，这些风险直接写在这里而不是只在 toast 里闪一下 */}
       {published && (
-        <div className="mb-3 rounded-lg border border-line bg-chip/60 p-2.5">
-          <div className="flex items-center gap-1.5">
-            <input
-              readOnly
-              value={published.url}
-              className="input flex-1 min-w-0 !py-1.5 text-xs"
-              aria-label="已发布的订阅地址"
-              onFocus={(e) => e.currentTarget.select()}
-            />
-            <button className="btn-ghost btn-sm shrink-0" onClick={copyPublished}>
-              复制
-            </button>
-            <button
-              className="btn-ghost btn-sm shrink-0"
-              onClick={() => {
-                setSubUrl(published.url);
-                void sync(published.url);
+        <Card
+          size="small"
+          style={{
+            marginBottom: 12,
+            borderColor: 'var(--ant-color-border-secondary)',
+            backgroundColor: 'color-mix(in srgb, var(--ant-color-fill-tertiary) 60%, transparent)',
+          }}
+          styles={{ body: { padding: 10 } }}
+        >
+          <Flex vertical>
+            <Flex align="center" gap={6}>
+              <Input
+                style={{
+                  minWidth: 0,
+                  paddingBlock: 6,
+                  fontSize: 'var(--ant-font-size-sm)',
+                  flex: '1 1 0%',
+                }}
+                readOnly
+                value={published.url}
+
+                aria-label="已发布的订阅地址"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <Button
+                style={{ flexShrink: 0 }}
+                type="default"
+                size="small"
+
+                onClick={copyPublished}
+              >
+                复制
+              </Button>
+              <Button
+                style={{ flexShrink: 0 }}
+                type="default"
+                size="small"
+
+                onClick={() => {
+                  setSubUrl(published.url);
+                  void sync(published.url);
+                }}
+              >
+                直接订阅
+              </Button>
+            </Flex>
+            <Typography.Paragraph
+              type="secondary"
+              style={{
+                margin: 0,
+                marginTop: 6,
+                fontSize: '11px',
+
+                lineHeight: 1.625,
               }}
             >
-              直接订阅
-            </button>
-          </div>
-          <p className="mt-1.5 text-[11px] text-faint leading-relaxed">
-            已发布到 {published.provider}（{published.sources} 个点播源、{published.liveSources} 个直播源）。
-            链接内容公开可读，粘贴板也可能随时清理——长期使用建议自行托管。
-          </p>
-        </div>
+              已发布到 {published.provider}（{published.sources} 个点播源、{published.liveSources}{' '}
+              个直播源）。 链接内容公开可读，粘贴板也可能随时清理——长期使用建议自行托管。
+            </Typography.Paragraph>
+          </Flex>
+        </Card>
       )}
 
-      <div className="flex gap-2 mb-2">
-        <input
-          className="input flex-1 min-w-0"
+      <Flex style={{ marginBottom: 8 }} gap={8}>
+        <Input
+          style={{ minWidth: 0, flex: '1 1 0%' }}
+
           placeholder="订阅地址（LibreTV 源列表或 TVBOX 配置的 JSON URL）"
           value={subUrl}
           onChange={(e) => setSubUrl(e.target.value)}
@@ -995,160 +1296,220 @@ function SourceSubscriptions() {
             if (e.key === 'Enter') addAndSync();
           }}
         />
-        <button
-          className="btn-primary btn-sm shrink-0"
+        <Button
+          style={{ flexShrink: 0 }}
+          type="primary"
+          size="small"
+
           disabled={!subUrl.trim() || syncing.size > 0}
           onClick={addAndSync}
         >
           {syncing.size > 0 ? '同步中…' : '订阅'}
-        </button>
-      </div>
+        </Button>
+      </Flex>
       {store.subscriptions.length === 0 ? (
-        <p className="text-xs text-faint">
-          一份订阅可同时下发点播源与直播源，支持 LibreTV 源列表与 TVBOX 配置（仅导入可直接使用的接口，Spider 类站点自动跳过）；
-          「导出数据源」生成的 JSON 托管到任意 URL 即可分享给他人订阅。
-        </p>
+        <Typography.Paragraph
+          type="secondary"
+          style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
+        >
+          一份订阅可同时下发点播源与直播源，支持 LibreTV 源列表与 TVBOX
+          配置（仅导入可直接使用的接口，Spider 类站点自动跳过）； 「导出数据源」生成的 JSON
+          托管到任意 URL 即可分享给他人订阅。
+        </Typography.Paragraph>
       ) : (
-        <ul className="space-y-2">
+        <Flex style={{ margin: 0, padding: 0, listStyle: 'none' }} vertical gap={8} component="ul">
           {store.subscriptions.map((sub) => {
-            const vodCount = store.customAPIs.filter((a) => keyBelongsToSubscription(a.key, subKeyPrefix(sub.url))).length;
-            const liveCount = store.liveSubscriptions.filter((s) => s.fromSubscriptions.includes(sub.url)).length;
+            const vodCount = store.customAPIs.filter((a) =>
+              keyBelongsToSubscription(a.key, subKeyPrefix(sub.url)),
+            ).length;
+            const liveCount = store.liveSubscriptions.filter((s) =>
+              s.fromSubscriptions.includes(sub.url),
+            ).length;
             const isSyncing = syncing.has(sub.url);
             // 自动刷新状态：暂停（连续失败触顶）> 距下次刷新 > 未设周期不提示
             const paused = Boolean(
-              sub.refreshDays && (sub.failStreak ?? 0) >= AUTO_REFRESH_MAX_FAIL_STREAK
+              sub.refreshDays && (sub.failStreak ?? 0) >= AUTO_REFRESH_MAX_FAIL_STREAK,
             );
             const nextAt =
-              sub.refreshDays && sub.lastSync ? sub.lastSync + sub.refreshDays * 86_400_000 : undefined;
+              sub.refreshDays && sub.lastSync
+                ? sub.lastSync + sub.refreshDays * 86_400_000
+                : undefined;
             const remainingMs = nextAt ? nextAt - Date.now() : 0;
             return (
-              <li
-                key={sub.url}
-                className={cn(
-                  'bg-card rounded-lg p-3 transition-colors hover:bg-hover/50',
-                  // 与源列表的「未勾选」用同一套停用观感：淡显 + 徽章说明
-                  sub.enabled === false && 'opacity-70'
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-content truncate">{sub.name || hostnameOf(sub.url)}</div>
-                    <div className="text-xs text-faint truncate">
-                      {sub.url}
-                      {sub.lastSync && ` · 同步于 ${formatRelativeTime(sub.lastSync)}`}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">点播 {vodCount}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">直播 {liveCount}</span>
-                      {sub.enabled === false && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">已停用</span>
-                      )}
-                      {sub.lastStatus === 'error' ? (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger"
-                          title={sub.lastError}
+              <li key={sub.url}>
+                <Card size="small" style={{ ...(sub.enabled === false ? { opacity: 0.7 } : {}) }}>
+                  <Flex align="center" gap={8}>
+                    <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+                      <Flex
+                        vertical
+                        style={{
+                          fontSize: 'var(--ant-font-size)',
+                          fontWeight: 500,
+                          color: 'var(--ant-color-text)',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {sub.name || hostnameOf(sub.url)}
+                      </Flex>
+                      <Flex
+                        vertical
+                        style={{
+                          fontSize: 'var(--ant-font-size-sm)',
+                          color: 'var(--ant-color-text-tertiary)',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {sub.url}
+                        {sub.lastSync && ` · 同步于 ${formatRelativeTime(sub.lastSync)}`}
+                      </Flex>
+                      <Flex style={{ marginTop: 4 }} align="center" gap={4} wrap>
+                        <Tag color="gold">点播 {vodCount}</Tag>
+                        <Tag color="gold">直播 {liveCount}</Tag>
+                        {sub.enabled === false && <Tag color="warning">已停用</Tag>}
+                        {sub.lastStatus === 'error' ? (
+                          <Tag color="error" title={sub.lastError}>
+                            上次同步失败
+                          </Tag>
+                        ) : sub.lastStatus === 'ok' && sub.lastCounts ? (
+                          <Tag color="success">
+                            上次导入 {sub.lastCounts.vod} 点播 / {sub.lastCounts.live} 直播
+                          </Tag>
+                        ) : null}
+                      </Flex>
+                      {sub.lastStatus === 'error' && sub.lastError && (
+                        <Typography.Paragraph
+                          type="danger"
+                          style={{
+                            margin: 0,
+                            fontSize: '11px',
+
+                            marginTop: 4,
+                            wordBreak: 'break-all',
+                          }}
                         >
-                          上次同步失败
-                        </span>
-                      ) : sub.lastStatus === 'ok' && sub.lastCounts ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">
-                          上次导入 {sub.lastCounts.vod} 点播 / {sub.lastCounts.live} 直播
-                        </span>
-                      ) : null}
-                    </div>
-                    {sub.lastStatus === 'error' && sub.lastError && (
-                      <p className="text-[11px] text-danger mt-1 break-all">{sub.lastError}</p>
-                    )}
-                    {/* 自动刷新：默认「手动」，显式设了周期才会在打开站点时静默刷新 */}
-                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-faint">
-                      <Icon name="clock" className="w-3 h-3 shrink-0" />
-                      <span>自动刷新</span>
-                      <Dropdown
-                        value={sub.refreshDays ? String(sub.refreshDays) : 'off'}
-                        onChange={(v) =>
-                          store.setSubscriptionRefreshDays(sub.url, v === 'off' ? undefined : Number(v))
-                        }
-                        options={REFRESH_OPTIONS}
-                        ariaLabel="自动刷新周期"
-                        className="[&>button]:!py-0.5 [&>button]:!pl-2 [&>button]:!pr-1.5 [&>button]:text-[11px]"
-                      />
-                      {paused ? (
-                        <span className="text-warning">
-                          已暂停：连续失败 {sub.failStreak} 次，手动同步成功即恢复
-                        </span>
-                      ) : remainingMs > 0 ? (
-                        <span>约 {Math.max(1, Math.ceil(remainingMs / 86_400_000))} 天后刷新</span>
-                      ) : sub.refreshDays ? (
-                        <span>下次打开站点时刷新</span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Switch
-                    checked={sub.enabled !== false}
-                    onChange={(v) => store.setSubscriptionEnabled(sub.url, v)}
-                    label={sub.enabled === false ? '启用该订阅' : '停用该订阅'}
-                    title={
-                      sub.enabled === false
-                        ? '当前已停用（其源不参与搜索），点击启用'
-                        : '停用后该订阅下的源暂不参与搜索；已导入的数据与各源勾选状态都保留'
-                    }
-                  />
-                  <button
-                    className="rounded-md p-2 shrink-0 text-muted transition-colors hover:bg-hover hover:text-accent disabled:opacity-40"
-                    disabled={isSyncing}
-                    onClick={() => sync(sub.url)}
-                    aria-label="重新同步"
-                    title="重新同步（以远端列表为准，整体替换该订阅名下的点播源与直播源）"
-                  >
-                    {isSyncing ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      <Icon name="refresh" className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    className="rounded-md p-2 shrink-0 text-muted transition-colors hover:bg-hover hover:text-danger"
-                    onClick={() => setPendingDelete(sub.url)}
-                    aria-label="删除订阅"
-                    title="删除订阅及其导入的点播源与直播源（保留收藏的频道）"
-                  >
-                    <Icon name="trash" className="w-4 h-4" />
-                  </button>
-                </div>
+                          {sub.lastError}
+                        </Typography.Paragraph>
+                      )}
+                      {/* 自动刷新：默认「手动」，显式设了周期才会在打开站点时静默刷新 */}
+                      <Flex
+                        style={{
+                          marginTop: 6,
+                          fontSize: '11px',
+                          color: 'var(--ant-color-text-tertiary)',
+                        }}
+                        align="center"
+                        gap={6}
+                        wrap
+                      >
+                        <ClockCircleOutlined style={{ fontSize: 12, flexShrink: 0 }} aria-hidden />
+                        <Typography.Text>自动刷新</Typography.Text>
+                        <Select
+                          popupMatchSelectWidth={false}
+                          value={sub.refreshDays ? String(sub.refreshDays) : 'off'}
+                          onChange={(v) =>
+                            store.setSubscriptionRefreshDays(
+                              sub.url,
+                              v === 'off' ? undefined : Number(v),
+                            )
+                          }
+                          options={REFRESH_OPTIONS}
+                          aria-label="自动刷新周期"
+                        />
+                        {paused ? (
+                          <Typography.Text type="warning" style={{}}>
+                            已暂停：连续失败 {sub.failStreak} 次，手动同步成功即恢复
+                          </Typography.Text>
+                        ) : remainingMs > 0 ? (
+                          <Typography.Text>
+                            约 {Math.max(1, Math.ceil(remainingMs / 86_400_000))} 天后刷新
+                          </Typography.Text>
+                        ) : sub.refreshDays ? (
+                          <Typography.Text>下次打开站点时刷新</Typography.Text>
+                        ) : null}
+                      </Flex>
+                    </Flex>
+                    <Switch
+                      checked={sub.enabled !== false}
+                      onChange={(v) => store.setSubscriptionEnabled(sub.url, v)}
+                      aria-label={sub.enabled === false ? '启用该订阅' : '停用该订阅'}
+                      title={
+                        sub.enabled === false
+                          ? '当前已停用（其源不参与搜索），点击启用'
+                          : '停用后该订阅下的源暂不参与搜索；已导入的数据与各源勾选状态都保留'
+                      }
+                    />
+                    <Button
+                      style={{ flexShrink: 0 }}
+                      type="text"
+
+                      disabled={isSyncing}
+                      onClick={() => sync(sub.url)}
+                      aria-label="重新同步"
+                      title="重新同步（以远端列表为准，整体替换该订阅名下的点播源与直播源）"
+                    >
+                      {isSyncing ? (
+                        <Spin size="small" />
+                      ) : (
+                        <ReloadOutlined style={{ fontSize: 16 }} aria-hidden />
+                      )}
+                    </Button>
+                    <Button
+                      style={{ flexShrink: 0 }}
+                      type="text"
+
+                      onClick={() => setPendingDelete(sub.url)}
+                      aria-label="删除订阅"
+                      title="删除订阅及其导入的点播源与直播源（保留收藏的频道）"
+                    >
+                      <DeleteOutlined style={{ fontSize: 16 }} aria-hidden />
+                    </Button>
+                  </Flex>
+                </Card>
               </li>
             );
           })}
-        </ul>
+        </Flex>
       )}
 
       {/* 重操作：删除订阅会级联移除其导入的源，先确认并说明影响面 */}
-      <ConfirmDialog
+      <Modal
+        centered
+        width={420}
+        destroyOnHidden
+        closable={false}
+        cancelButtonProps={{ autoFocus: true }}
         open={pendingDelete !== null}
-        danger
+        okButtonProps={{ danger: true }}
         title="删除该订阅？"
-        message={
-          pendingDelete
-            ? (() => {
-                const impact = deleteImpact(pendingDelete);
-                const parts: string[] = [];
-                if (impact.vod > 0) parts.push(`${impact.vod} 个点播源`);
-                if (impact.live > 0) parts.push(`${impact.live} 个直播源`);
-                return parts.length > 0
-                  ? `将同时删除该订阅导入的 ${parts.join(' 与 ')}；你收藏的频道会保留。`
-                  : '该订阅当前未导入任何源，删除后不影响其他数据。';
-              })()
-            : undefined
-        }
-        confirmLabel="删除订阅"
+
+        okText="删除订阅"
         onCancel={() => setPendingDelete(null)}
-        onConfirm={() => {
+        onOk={() => {
           const url = pendingDelete;
           if (url) useAppStore.getState().removeSubscription(url);
           setPendingDelete(null);
           toast('订阅已删除', 'success');
         }}
-      />
-    </section>
+      >
+        {pendingDelete
+          ? (() => {
+              const impact = deleteImpact(pendingDelete);
+              const parts: string[] = [];
+              if (impact.vod > 0) parts.push(`${impact.vod} 个点播源`);
+              if (impact.live > 0) parts.push(`${impact.live} 个直播源`);
+              return parts.length > 0
+                ? `将同时删除该订阅导入的 ${parts.join(' 与 ')}；你收藏的频道会保留。`
+                : '该订阅当前未导入任何源，删除后不影响其他数据。';
+            })()
+          : undefined}
+      </Modal>
+    </Flex>
   );
 }
 
@@ -1200,38 +1561,55 @@ function ConfigIoPanel() {
   };
 
   return (
-    <section>
-      <SectionTitle title="配置导入导出" hint="导出/导入包含数据源、订阅与偏好设置的整机配置" />
-      <div className="flex gap-2">
-        <button className="btn-ghost flex-1 text-xs" onClick={doExport}>
+    <Flex vertical component="section">
+      <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {'配置导入导出'}
+          </Typography.Title>
+          <Typography.Text type="secondary" ellipsis>
+            {'导出/导入包含数据源、订阅与偏好设置的整机配置'}
+          </Typography.Text>
+        </Flex>
+      </Flex>
+      <Flex gap={8}>
+        <Button style={{ flex: '1 1 0%' }} type="default" onClick={doExport}>
           导出配置
-        </button>
-        <label className="btn-ghost flex-1 text-xs cursor-pointer">
-          导入配置
-          <input
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void pickImport(f);
-              e.target.value = '';
-            }}
-          />
-        </label>
-      </div>
+        </Button>
+        <Upload
+          style={{ flex: '1 1 0%' }}
+
+          showUploadList={false}
+          accept=".json,application/json"
+          beforeUpload={(file) => {
+            void pickImport(file);
+            return false;
+          }}
+        >
+          <Button block>导入配置</Button>
+        </Upload>
+      </Flex>
 
       {/* 重操作：导入会覆盖全部配置，先确认并展示将导入的内容概要 */}
-      <ConfirmDialog
+      <Modal
+        centered
+        width={420}
+        destroyOnHidden
+        closable={false}
+        cancelButtonProps={{ autoFocus: true }}
         open={pending !== null}
-        danger
+        okButtonProps={{ danger: true }}
         title="导入配置并覆盖当前数据？"
-        message={pending ? `${pending.summary}。导入后将立即刷新页面，当前设备上的配置与观看历史会被覆盖。` : undefined}
-        confirmLabel="导入并覆盖"
+
+        okText="导入并覆盖"
         onCancel={() => setPending(null)}
-        onConfirm={confirmImport}
-      />
-    </section>
+        onOk={confirmImport}
+      >
+        {pending
+          ? `${pending.summary}。导入后将立即刷新页面，当前设备上的配置与观看历史会被覆盖。`
+          : undefined}
+      </Modal>
+    </Flex>
   );
 }
 
@@ -1313,45 +1691,53 @@ function SourceForm({
   };
 
   return (
-    <div className="space-y-2 border border-line rounded-lg p-3 bg-chip mb-2">
-    <input
-      className="input w-full"
-      aria-label="点播源名称"
-      placeholder="名称"
-      value={name}
-      onChange={(e) => setName(e.target.value)}
-    />
-    <input
-      className="input w-full"
-      aria-label="API 地址"
-      placeholder="API 地址，如 https://example.com/api.php/provide/vod"
-      value={url}
-      onChange={(e) => setUrl(e.target.value)}
-    />
-    <input
-      className="input w-full"
-      aria-label="详情页地址（可选）"
-      placeholder="详情页地址（可选），如 https://example.com"
-      value={detail}
-      onChange={(e) => setDetail(e.target.value)}
-    />
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input
-          type="checkbox"
-          className="h-3.5 w-3.5 accent-pink-500"
+    <Card
+      size="small"
+      style={{
+        borderColor: 'var(--ant-color-border-secondary)',
+        backgroundColor: 'var(--ant-color-fill-tertiary)',
+        marginBottom: 8,
+      }}
+      styles={{ body: { padding: 12 } }}
+    >
+      <Flex vertical gap={8}>
+        <Input
+          style={{ width: '100%' }}
+          aria-label="点播源名称"
+          placeholder="名称"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          style={{ width: '100%' }}
+          aria-label="API 地址"
+          placeholder="API 地址，如 https://example.com/api.php/provide/vod"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <Input
+          style={{ width: '100%' }}
+          aria-label="详情页地址（可选）"
+          placeholder="详情页地址（可选），如 https://example.com"
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+        />
+        <Checkbox
+          style={{ fontSize: 'var(--ant-font-size-sm)', color: 'var(--ant-color-text-secondary)' }}
           checked={isAdult}
           onChange={(e) => setIsAdult(e.target.checked)}
-        />
-        标记为成人内容源（受成人过滤控制）
-      </label>
-      <div className="flex gap-2 justify-end">
-        <button className="btn-ghost btn-sm" onClick={onCancel}>
-          取消
-        </button>
-        <button className="btn-primary btn-sm" onClick={submit}>
-          {initial ? '更新' : '添加'}
-        </button>
-      </div>
-    </div>
+        >
+          标记为成人内容源（受成人过滤控制）
+        </Checkbox>
+        <Flex gap={8} justify="flex-end">
+          <Button type="default" size="small" onClick={onCancel}>
+            取消
+          </Button>
+          <Button type="primary" size="small" onClick={submit}>
+            {initial ? '更新' : '添加'}
+          </Button>
+        </Flex>
+      </Flex>
+    </Card>
   );
 }

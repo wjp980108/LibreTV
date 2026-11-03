@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { Image } from 'antd';
 import { buildImageCandidates } from '@/lib/utils';
 
 interface SmartImageProps {
@@ -9,7 +10,7 @@ interface SmartImageProps {
   mode: 'direct' | 'proxy' | 'custom';
   customProxy?: string;
   alt: string;
-  className?: string;
+  style?: CSSProperties;
   loading?: 'lazy' | 'eager';
   /** 候选链耗尽后回调，调用方切换占位图等兜底 UI */
   onExhausted?: () => void;
@@ -26,7 +27,7 @@ export function SmartImage({
   mode,
   customProxy = '',
   alt,
-  className,
+  style,
   loading = 'lazy',
   onExhausted,
 }: SmartImageProps) {
@@ -43,11 +44,18 @@ export function SmartImage({
   const src = candidates[idx];
   if (!src) return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <Image
+      preview={false}
       src={src}
       alt={alt}
-      className={className}
+      styles={{
+        root: { display: 'block', ...style },
+        image: {
+          width: '100%',
+          height: '100%',
+          objectFit: style?.objectFit ?? 'cover',
+        },
+      }}
       loading={loading}
       referrerPolicy="no-referrer"
       onError={() => setIdx((i) => i + 1)}

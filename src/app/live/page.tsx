@@ -1,5 +1,30 @@
 'use client';
 
+import {
+  UndoOutlined,
+  DoubleLeftOutlined,
+  DoubleRightOutlined,
+  StarFilled,
+  StarOutlined,
+  CopyOutlined,
+  MenuOutlined,
+} from '@ant-design/icons';
+
+import {
+  Button,
+  Drawer,
+  Grid,
+  Tag,
+  Spin,
+  Flex,
+  Layout,
+  Row,
+  Col,
+  Card,
+  Typography,
+  Badge,
+} from 'antd';
+
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -11,17 +36,19 @@ import dynamic from 'next/dynamic';
 const LivePlayer = dynamic(() => import('@/components/live-player').then((m) => m.LivePlayer), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-black">
-      <Spinner size="lg" />
-    </div>
+    <Flex
+      style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+      align="center"
+      justify="center"
+    >
+      <Spin size="large" />
+    </Flex>
   ),
 });
 import { LiveChannelList, type LiveChannelItem } from '@/components/live-channel-list';
 import { LiveEpgPanel } from '@/components/live-epg-panel';
-import { Spinner } from '@/components/states';
 import { useAuth } from '@/components/auth';
 import { allLiveSources, useAppStore } from '@/lib/store';
-import { cn } from '@/lib/utils';
 import { SmartImage } from '@/components/smart-image';
 
 /**
@@ -41,6 +68,7 @@ export default function LivePage() {
 function LiveContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const screens = Grid.useBreakpoint();
   // 精确订阅所需字段：任何其他 store 变化（如测活写回）不应触发本组件重渲染
   const liveSelectedUrls = useAppStore((s) => s.liveSelectedUrls);
   const liveEnvSources = useAppStore((s) => s.liveEnvSources);
@@ -92,9 +120,9 @@ function LiveContent() {
         list.push({ ...c, epg: source.epg, sourceUrl: source.url });
       }
     }
-    const groups = [...new Set(list.map((c) => c.group).filter((g): g is string => Boolean(g)))].sort(
-      (a, b) => a.localeCompare(b, 'zh')
-    );
+    const groups = [
+      ...new Set(list.map((c) => c.group).filter((g): g is string => Boolean(g))),
+    ].sort((a, b) => a.localeCompare(b, 'zh'));
     return { channels: list, groups, failedCount: failed };
   }, [playlistsQuery.data]);
 
@@ -140,7 +168,7 @@ function LiveContent() {
         sourceUrl: c.sourceUrl,
       });
     },
-    [router]
+    [router],
   );
 
   const handleFilteredChange = useCallback((list: LiveChannelItem[]) => {
@@ -155,10 +183,14 @@ function LiveContent() {
       const nowUrl = new URLSearchParams(window.location.search).get('url') || '';
       const idx = list.findIndex((c) => c.url === nowUrl);
       const next =
-        idx === -1 ? (delta === 1 ? 0 : list.length - 1) : (idx + delta + list.length) % list.length;
+        idx === -1
+          ? delta === 1
+            ? 0
+            : list.length - 1
+          : (idx + delta + list.length) % list.length;
       selectChannel(list[next]);
     },
-    [selectChannel]
+    [selectChannel],
   );
 
   const goPrevChannel = useCallback(() => switchChannelByOffset(-1), [switchChannelByOffset]);
@@ -200,17 +232,22 @@ function LiveContent() {
       // 移动端抽屉：选中即收起
       setListOpen(false);
     },
-    [selectChannel]
+    [selectChannel],
   );
 
   if (!verified) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
         <Header />
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-faint text-sm">等待访问验证...</p>
-        </div>
-      </div>
+        <Flex style={{ flex: '1 1 0%' }} align="center" justify="center">
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontSize: 'var(--ant-font-size)' }}
+          >
+            等待访问验证...
+          </Typography.Paragraph>
+        </Flex>
+      </Layout>
     );
   }
 
@@ -218,251 +255,347 @@ function LiveContent() {
   const isFavorite = currentChannel ? liveFavorites.includes(currentChannel.url) : false;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
       <Header showSearch />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+      <Layout.Content style={{ maxWidth: 1280, width: '100%', marginInline: 'auto', padding: 16 }}>
+        <Row gutter={[16, 16]}>
           {/* 主栏：播放器 + 信息条 + 节目单 */}
-          <div className="min-w-0">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              {currentUrl ? (
-                <LivePlayer
-                  url={currentUrl}
-                  title={currentChannel?.name || '直播'}
-                  onPrevChannel={goPrevChannel}
-                  onNextChannel={goNextChannel}
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-black">
-                  <span className="live-dot" />
-                  <p className="text-white/60 text-sm">
-                    {sources.length === 0
-                      ? liveEnvSources.length + liveSubscriptions.length > 0
-                        ? '所有直播源均已停用，请在设置中勾选启用'
-                        : '请先在设置中添加直播源（M3U 订阅）'
-                      : playlistsQuery.isLoading
-                        ? '频道列表加载中...'
-                        : '从右侧选择一个频道开始观看'}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* 频道信息条 */}
-            {currentChannel && (
-              <div className="bg-surface-raised border border-line rounded-lg p-3 mt-3 flex items-center gap-3">
-                <div className="w-10 h-10 shrink-0 rounded bg-chip flex items-center justify-center overflow-hidden">
-                  {logo && !logoFailed ? (
-                    <SmartImage
-                      url={logo}
-                      mode={imageProxyMode}
-                      customProxy={customImageProxy}
-                      alt=""
-                      className="w-full h-full object-contain"
-                      onExhausted={() => setLogoFailed(true)}
-                    />
-                  ) : (
-                    <span className="text-xs text-faint">{currentChannel.name.slice(0, 1)}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="live-dot shrink-0" />
-                    <h1 className="text-sm font-semibold text-content truncate">{currentChannel.name}</h1>
-                    {currentChannel.group && (
-                      <span className="tag bg-chip text-faint shrink-0">{currentChannel.group}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-faint truncate mt-0.5">{currentChannel.url}</p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    className={cn(
-                      'rounded-md p-2 transition-colors',
-                      lastChannelRef.current
-                        ? 'text-muted hover:text-accent hover:bg-hover'
-                        : 'text-faint/40 cursor-default'
-                    )}
-                    aria-label="上一个频道"
-                    title={lastChannelRef.current ? `上一个频道：${lastChannelRef.current.name}（Backspace）` : '暂无上一个频道'}
-                    onClick={backToPrevChannel}
+          <Col xs={24} lg={17} xl={18} style={{ minWidth: 0 }}>
+            <Flex vertical style={{ minWidth: 0 }}>
+              <Flex
+                style={{
+                  aspectRatio: '16/9',
+                  backgroundColor: '#000',
+                  borderRadius: 'var(--ant-border-radius-lg)',
+                  overflow: 'hidden',
+                }}
+              >
+                {currentUrl ? (
+                  <LivePlayer
+                    url={currentUrl}
+                    title={currentChannel?.name || '直播'}
+                    onPrevChannel={goPrevChannel}
+                    onNextChannel={goNextChannel}
+                  />
+                ) : (
+                  <Flex
+                    style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                    vertical
+                    align="center"
+                    justify="center"
+                    gap={8}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 15L4 10l5-5m-5 5h10.5a5.5 5.5 0 015.5 5.5V17"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="rounded-md p-2 text-muted hover:text-accent hover:bg-hover transition-colors"
-                    aria-label="上一台"
-                    title="上一台（↑）"
-                    onClick={goPrevChannel}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="rounded-md p-2 text-muted hover:text-accent hover:bg-hover transition-colors"
-                    aria-label="下一台"
-                    title="下一台（↓）"
-                    onClick={goNextChannel}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className={cn(
-                      'rounded-md p-2 transition-colors',
-                      isFavorite ? 'text-warning' : 'text-muted hover:text-warning hover:bg-hover'
-                    )}
-                    aria-label={isFavorite ? '取消收藏' : '收藏'}
-                    title={isFavorite ? '取消收藏' : '收藏'}
-                    onClick={() => useAppStore.getState().toggleLiveFavorite(currentChannel.url)}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill={isFavorite ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <Badge status="processing" color="red" />
+                    <Typography.Paragraph
+                      style={{
+                        margin: 0,
+                        color: 'color-mix(in srgb, #fff 60%, transparent)',
+                        fontSize: 'var(--ant-font-size)',
+                      }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="rounded-md p-2 text-muted hover:text-accent hover:bg-hover transition-colors"
-                    aria-label="复制播放地址"
-                    title="复制播放地址"
-                    onClick={async () => {
-                      const ok = await copyToClipboard(currentChannel.url);
-                      if (ok) {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 1500);
-                      }
+                      {sources.length === 0
+                        ? liveEnvSources.length + liveSubscriptions.length > 0
+                          ? '所有直播源均已停用，请在设置中勾选启用'
+                          : '请先在设置中添加直播源（M3U 订阅）'
+                        : playlistsQuery.isLoading
+                          ? '频道列表加载中...'
+                          : '从右侧选择一个频道开始观看'}
+                    </Typography.Paragraph>
+                  </Flex>
+                )}
+              </Flex>
+
+              {/* 频道信息条 */}
+              {currentChannel && (
+                <Card size="small" style={{ marginTop: 12 }}>
+                  <Flex align="center" gap={12}>
+                    <Flex
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 'var(--ant-border-radius-sm)',
+                        backgroundColor: 'var(--ant-color-fill-tertiary)',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+
+                      align="center"
+                      justify="center"
+                    >
+                      {logo && !logoFailed ? (
+                        <SmartImage
+                          url={logo}
+                          mode={imageProxyMode}
+                          customProxy={customImageProxy}
+                          alt=""
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onExhausted={() => setLogoFailed(true)}
+                        />
+                      ) : (
+                        <Typography.Text
+                          type="secondary"
+                          style={{
+                            fontSize: 'var(--ant-font-size-sm)',
+                          }}
+                        >
+                          {currentChannel.name.slice(0, 1)}
+                        </Typography.Text>
+                      )}
+                    </Flex>
+                    <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+                      <Flex align="center" gap={8}>
+                        <Badge status="processing" color="red" />
+                        <Typography.Title
+                          level={1}
+                          ellipsis
+                          style={{
+                            margin: 0,
+                            fontSize: 'var(--ant-font-size)',
+                            fontWeight: 600,
+
+                            minWidth: 0,
+                          }}
+                        >
+                          {currentChannel.name}
+                        </Typography.Title>
+                        {currentChannel.group && (
+                          <Tag style={{ flexShrink: 0 }}>{currentChannel.group}</Tag>
+                        )}
+                      </Flex>
+                      <Typography.Paragraph
+                        type="secondary"
+                        ellipsis
+                        style={{
+                          margin: 0,
+                          fontSize: 'var(--ant-font-size-sm)',
+
+                          minWidth: 0,
+                          marginTop: 2,
+                        }}
+                      >
+                        {currentChannel.url}
+                      </Typography.Paragraph>
+                    </Flex>
+                    <Flex style={{ flexShrink: 0 }} align="center" gap={4}>
+                      <Button
+                        type="text"
+
+                        aria-label="上一个频道"
+                        title={
+                          lastChannelRef.current
+                            ? `上一个频道：${lastChannelRef.current.name}（Backspace）`
+                            : '暂无上一个频道'
+                        }
+                        onClick={backToPrevChannel}
+                      >
+                        <UndoOutlined style={{ fontSize: 16 }} aria-hidden />
+                      </Button>
+                      <Button
+                        type="text"
+
+                        aria-label="上一台"
+                        title="上一台（↑）"
+                        onClick={goPrevChannel}
+                      >
+                        <DoubleLeftOutlined style={{ fontSize: 16 }} aria-hidden />
+                      </Button>
+                      <Button
+                        type="text"
+
+                        aria-label="下一台"
+                        title="下一台（↓）"
+                        onClick={goNextChannel}
+                      >
+                        <DoubleRightOutlined style={{ fontSize: 16 }} aria-hidden />
+                      </Button>
+                      <Button
+                        color={isFavorite ? 'gold' : 'default'}
+                        variant="text"
+
+                        aria-label={isFavorite ? '取消收藏' : '收藏'}
+                        title={isFavorite ? '取消收藏' : '收藏'}
+                        onClick={() =>
+                          useAppStore.getState().toggleLiveFavorite(currentChannel.url)
+                        }
+                      >
+                        {isFavorite ? (
+                          <StarFilled style={{ fontSize: 16 }} aria-hidden />
+                        ) : (
+                          <StarOutlined style={{ fontSize: 16 }} aria-hidden />
+                        )}
+                      </Button>
+                      <Button
+                        type="text"
+
+                        aria-label="复制播放地址"
+                        title="复制播放地址"
+                        onClick={async () => {
+                          const ok = await copyToClipboard(currentChannel.url);
+                          if (ok) {
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 1500);
+                          }
+                        }}
+                      >
+                        {copied ? (
+                          <Typography.Text type="success" style={{ fontSize: '10px' }}>
+                            已复制
+                          </Typography.Text>
+                        ) : (
+                          <CopyOutlined style={{ fontSize: 16 }} aria-hidden />
+                        )}
+                      </Button>
+                    </Flex>
+                  </Flex>
+                </Card>
+              )}
+
+              {/* 节目单 */}
+              {currentChannel && (
+                <Card size="small" style={{ marginTop: 12 }}>
+                  <Typography.Title
+                    level={2}
+                    style={{
+                      margin: 0,
+                      fontSize: 'var(--ant-font-size)',
+                      fontWeight: 600,
+
+                      marginBottom: 10,
                     }}
                   >
-                    {copied ? (
-                      <span className="text-[10px] text-success">已复制</span>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                    节目单
+                  </Typography.Title>
+                  <LiveEpgPanel epgUrl={currentChannel.epg} tvgId={currentChannel.tvgId} />
+                </Card>
+              )}
+            </Flex>
+          </Col>
 
-            {/* 节目单 */}
-            {currentChannel && (
-              <section className="bg-surface-raised border border-line rounded-lg p-3 mt-3">
-                <h2 className="text-sm font-semibold text-content mb-2.5">节目单</h2>
-                <LiveEpgPanel epgUrl={currentChannel.epg} tvgId={currentChannel.tvgId} />
-              </section>
-            )}
-          </div>
-
-          {/* 移动端抽屉遮罩 */}
-          {listOpen && (
-            <div
-              className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-              aria-hidden="true"
-              onClick={() => setListOpen(false)}
-            />
-          )}
-
-          {/* 侧栏：桌面常驻 sticky；移动端底部抽屉 */}
-          <aside
-            className={cn(
-              'bg-surface-raised border border-line flex-col overflow-hidden',
-              'fixed inset-x-0 bottom-0 z-40 h-[75vh] rounded-t-2xl shadow-2xl',
-              listOpen ? 'flex' : 'hidden',
-              'lg:sticky lg:top-20 lg:flex lg:h-[calc(100vh-6.5rem)] lg:rounded-xl lg:shadow-none'
-            )}
-          >
-            {/* 抽屉把手栏（仅移动端） */}
-            <div className="flex items-center justify-between px-3 pt-3 pb-1 shrink-0 lg:hidden">
-              <span className="text-sm font-semibold text-content">频道列表</span>
-              <button
-                className="rounded-md p-1.5 text-muted hover:text-content hover:bg-hover transition-colors"
-                aria-label="关闭频道列表"
-                onClick={() => setListOpen(false)}
+          <Col xs={24} lg={7} xl={6} style={{ minWidth: 0 }}>
+            {screens.lg ? (
+              <Card
+                size="small"
+                style={{
+                  position: 'sticky',
+                  top: 80,
+                  height: 'calc(100vh-6.5rem)',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                  borderColor: 'var(--ant-color-border-secondary)',
+                  backgroundColor: 'var(--ant-color-bg-elevated)',
+                }}
+                styles={{ body: { padding: 0, height: '100%' } }}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 flex flex-col">
-              {playlistsQuery.isLoading && channels.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <Spinner size="lg" />
-                </div>
-              ) : (
-                <LiveChannelList
-                  channels={channels}
-                  groups={groups}
-                  currentUrl={currentUrl}
-                  onSelect={handleSelect}
-                  onFilteredChange={handleFilteredChange}
-                />
-              )}
-              {(failedCount > 0 || sources.length === 0) && (
-                <p className="text-[10px] text-faint px-3 py-1.5 border-t border-line shrink-0">
-                  {sources.length === 0
-                    ? liveEnvSources.length + liveSubscriptions.length > 0
-                      ? '所有直播源均已停用，请在设置中勾选启用'
-                      : '暂无直播源，请在设置 → 直播源中添加'
-                    : `${failedCount > 0 ? `${failedCount} 个订阅拉取失败 · ` : ''}共 ${sources.length} 个已启用源`}
-                </p>
-              )}
-            </div>
-          </aside>
-        </div>
+                <Flex style={{ height: '100%' }} vertical component="aside">
+                  <Flex style={{ minHeight: 0, flex: '1 1 0%' }} vertical>
+                    {playlistsQuery.isLoading && channels.length === 0 ? (
+                      <Flex style={{ flex: '1 1 0%' }} align="center" justify="center">
+                        <Spin size="large" />
+                      </Flex>
+                    ) : (
+                      <LiveChannelList
+                        channels={channels}
+                        groups={groups}
+                        currentUrl={currentUrl}
+                        onSelect={handleSelect}
+                        onFilteredChange={handleFilteredChange}
+                      />
+                    )}
+                    {(failedCount > 0 || sources.length === 0) && (
+                      <Typography.Paragraph
+                        type="secondary"
+                        style={{
+                          margin: 0,
+                          fontSize: '10px',
+
+                          paddingInline: 12,
+                          paddingBlock: 6,
+                          borderTopWidth: 1,
+                          borderStyle: 'solid',
+                          borderColor: 'var(--ant-color-border-secondary)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {sources.length === 0
+                          ? liveEnvSources.length + liveSubscriptions.length > 0
+                            ? '所有直播源均已停用，请在设置中勾选启用'
+                            : '暂无直播源，请在设置 → 直播源中添加'
+                          : `${failedCount > 0 ? `${failedCount} 个订阅拉取失败 · ` : ''}共 ${sources.length} 个已启用源`}
+                      </Typography.Paragraph>
+                    )}
+                  </Flex>
+                </Flex>
+              </Card>
+            ) : (
+              <Drawer
+                open={listOpen}
+                onClose={() => setListOpen(false)}
+                title="频道列表"
+                placement="bottom"
+                size="75vh"
+                destroyOnHidden
+                styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+              >
+                <Flex style={{ minHeight: 0, flex: '1 1 0%' }} vertical>
+                  {playlistsQuery.isLoading && channels.length === 0 ? (
+                    <Flex style={{ flex: '1 1 0%' }} align="center" justify="center">
+                      <Spin size="large" />
+                    </Flex>
+                  ) : (
+                    <LiveChannelList
+                      channels={channels}
+                      groups={groups}
+                      currentUrl={currentUrl}
+                      onSelect={handleSelect}
+                      onFilteredChange={handleFilteredChange}
+                    />
+                  )}
+                  {(failedCount > 0 || sources.length === 0) && (
+                    <Typography.Paragraph
+                      type="secondary"
+                      style={{
+                        margin: 0,
+                        fontSize: '10px',
+
+                        paddingInline: 12,
+                        paddingBlock: 6,
+                        borderTopWidth: 1,
+                        borderStyle: 'solid',
+                        borderColor: 'var(--ant-color-border-secondary)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {sources.length === 0
+                        ? liveEnvSources.length + liveSubscriptions.length > 0
+                          ? '所有直播源均已停用，请在设置中勾选启用'
+                          : '暂无直播源，请在设置 → 直播源中添加'
+                        : `${failedCount > 0 ? `${failedCount} 个订阅拉取失败 · ` : ''}共 ${sources.length} 个已启用源`}
+                    </Typography.Paragraph>
+                  )}
+                </Flex>
+              </Drawer>
+            )}
+          </Col>
+        </Row>
 
         {/* 移动端呼出频道列表的悬浮按钮 */}
         {!listOpen && channels.length > 0 && (
-          <button
-            className="fixed bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-sm text-on-accent shadow-lg lg:hidden"
+          <Button
+            type="text"
+            style={{
+              position: 'fixed',
+              bottom: 16,
+              right: 16,
+              zIndex: 30,
+              ...(screens.lg ? { display: 'none' } : {}),
+            }}
             onClick={() => setListOpen(true)}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
+            <MenuOutlined style={{ fontSize: 16 }} aria-hidden />
             频道
-          </button>
+          </Button>
         )}
-      </main>
-    </div>
+      </Layout.Content>
+    </Layout>
   );
 }

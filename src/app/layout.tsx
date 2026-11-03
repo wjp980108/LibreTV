@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { AntdRegistry } from '@ant-design/nextjs-registry';
 
 export const metadata: Metadata = {
   title: {
-    default: 'LibreTV - 免费在线视频搜索与观看平台',
+    default: 'LibreTV - 我的私人影院',
     template: '%s - LibreTV',
   },
   description:
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b101a',
+  themeColor: '#121312',
   width: 'device-width',
   initialScale: 1,
 };
@@ -33,6 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        {/* Declare cascade order before AntdRegistry emits server-rendered styles. */}
+        <style>{'@layer theme, base, antd, components, utilities;'}</style>
         {/* 首屏前同步主题，避免亮暗闪烁 */}
         <script
           dangerouslySetInnerHTML={{
@@ -42,7 +45,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <AntdRegistry>
+          <Providers>{children}</Providers>
+        </AntdRegistry>
       </body>
     </html>
   );

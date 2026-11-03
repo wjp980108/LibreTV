@@ -1,12 +1,25 @@
 'use client';
 
+import { SearchOutlined, VideoCameraOutlined, CloseOutlined } from '@ant-design/icons';
+import {
+  Input,
+  Button,
+  Modal,
+  Drawer,
+  Spin,
+  Empty,
+  Space,
+  Typography,
+  Flex,
+  Progress,
+  Layout,
+  Card,
+} from 'antd';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Link from 'next/link';
-import { Drawer } from './drawer';
-import { ConfirmDialog } from './confirm-dialog';
-import { EmptyState, LoadingState } from './states';
-import { Icon } from './icon';
+
 import { SmartImage } from './smart-image';
 import {
   db,
@@ -16,7 +29,7 @@ import {
   MAX_HISTORY,
   type HistoryEntry,
 } from '@/lib/db';
-import { buildWatchUrl, cn, formatRelativeTime, formatTime } from '@/lib/utils';
+import { buildWatchUrl, formatRelativeTime, formatTime } from '@/lib/utils';
 import { useToast } from './toast';
 import { resolveSource, useAppStore } from '@/lib/store';
 
@@ -33,7 +46,7 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
   // 全量读取（上限即 DB 淘汰上限）：默认只渲染最近若干条，搜索时覆盖更早的记录
   const history = useLiveQuery(
     () => db.history.orderBy('timestamp').reverse().limit(MAX_HISTORY).toArray(),
-    [open]
+    [open],
   );
   const { toast } = useToast();
   const [confirmClear, setConfirmClear] = useState(false);
@@ -58,79 +71,127 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
       open={open}
       onClose={onClose}
       title="观看历史"
-      width="max-w-lg"
-      // 搜索框放在固定副标题栏：历史较长时滚动列表仍可随时改关键字
-      subheader={
-        total > 0 ? (
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Icon
-                name="search"
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint pointer-events-none"
-              />
-              <input
-                type="text"
-                className="w-full h-9 pl-8 pr-8 rounded-lg border border-line bg-chip text-sm text-content placeholder:text-faint focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-accent/40"
-                placeholder="搜索观看历史..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                aria-label="搜索观看历史"
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-faint hover:text-content hover:bg-hover transition-colors"
-                  onClick={() => setQuery('')}
-                  aria-label="清空搜索"
-                >
-                  <Icon name="close" className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <button
-              className="shrink-0 px-2 py-1.5 rounded-md text-xs text-faint hover:text-danger hover:bg-hover transition-colors"
+      destroyOnHidden
+      closable={{ placement: 'end' }}
+      styles={{
+        body: { display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' },
+      }}
+      size={512}
+    >
+      <Flex
+        vertical
+        style={{
+          borderBottomWidth: 1,
+          borderStyle: 'solid',
+          borderColor: 'var(--ant-color-border-secondary)',
+          paddingInline: 16,
+          paddingBlock: 12,
+          flexShrink: 0,
+        }}
+      >
+        {total > 0 ? (
+          <Flex align="center" gap={8}>
+            <Input
+              style={{ flex: '1 1 0%' }}
+
+              allowClear
+              prefix={<SearchOutlined style={{ fontSize: 16 }} aria-hidden />}
+              placeholder="搜索观看历史…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="搜索观看历史"
+            />
+            <Button
+              style={{ flexShrink: 0 }}
+              type="text"
+
               onClick={() => setConfirmClear(true)}
             >
               清空历史
-            </button>
-          </div>
-        ) : undefined
-      }
-    >
-      {!history ? (
-        <LoadingState />
-      ) : total === 0 ? (
-        <EmptyState variant="plain" title="暂无观看记录" />
-      ) : visible.length === 0 ? (
-        <EmptyState variant="plain" title={`没有匹配「${query.trim()}」的观看记录`} />
-      ) : (
-        <>
-          {!keyword && total > VISIBLE_LIMIT && (
-            <p className="text-xs text-faint mb-2">
-              共 {total} 条记录，仅显示最近 {VISIBLE_LIMIT} 条，可用上方搜索查找更早的记录
-            </p>
-          )}
-          <ul className="space-y-2">
-            {visible.map((item) => (
-              <HistoryItem key={`${item.sourceKey}_${item.vodId}`} item={item} />
-            ))}
-          </ul>
-        </>
-      )}
-
-      {/* 重操作：清空不可撤销，先确认并说明数量 */}
-      <ConfirmDialog
-        open={confirmClear}
-        danger
-        title="清空全部观看历史？"
-        message={history ? `将删除 ${history.length} 条观看记录，此操作不可撤销。` : undefined}
-        confirmLabel="清空"
-        onCancel={() => setConfirmClear(false)}
-        onConfirm={() => {
-          void clearAllHistory().then(() => toast('观看历史已清空', 'success'));
-          setConfirmClear(false);
+            </Button>
+          </Flex>
+        ) : undefined}
+      </Flex>
+      <Layout.Content
+        style={{
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          padding: 16,
+          flex: '1 1 0%',
         }}
-      />
+      >
+        {!history ? (
+          <Spin description={undefined}>
+            <Flex style={{ minHeight: 112 }} />
+          </Spin>
+        ) : total === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <Space orientation="vertical">
+                <Typography.Text>{'暂无观看记录'}</Typography.Text>
+              </Space>
+            }
+          ></Empty>
+        ) : visible.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <Space orientation="vertical">
+                <Typography.Text>{`没有匹配「${query.trim()}」的观看记录`}</Typography.Text>
+              </Space>
+            }
+          ></Empty>
+        ) : (
+          <>
+            {!keyword && total > VISIBLE_LIMIT && (
+              <Typography.Paragraph
+                type="secondary"
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--ant-font-size-sm)',
+
+                  marginBottom: 8,
+                }}
+              >
+                共 {total} 条记录，仅显示最近 {VISIBLE_LIMIT} 条，可用上方搜索查找更早的记录
+              </Typography.Paragraph>
+            )}
+            <Flex
+              style={{ margin: 0, padding: 0, listStyle: 'none' }}
+              vertical
+              gap={8}
+              component="ul"
+            >
+              {visible.map((item) => (
+                <HistoryItem key={`${item.sourceKey}_${item.vodId}`} item={item} />
+              ))}
+            </Flex>
+          </>
+        )}
+
+        {/* 重操作：清空不可撤销，先确认并说明数量 */}
+        <Modal
+          centered
+          width={420}
+          destroyOnHidden
+          closable={false}
+          cancelButtonProps={{ autoFocus: true }}
+          open={confirmClear}
+          okButtonProps={{ danger: true }}
+          title="清空全部观看历史？"
+
+          okText="清空"
+          onCancel={() => setConfirmClear(false)}
+          onOk={() => {
+            void clearAllHistory().then(() => toast('观看历史已清空', 'success'));
+            setConfirmClear(false);
+          }}
+        >
+          {history ? `将删除 ${history.length} 条观看记录，此操作不可撤销。` : undefined}
+        </Modal>
+      </Layout.Content>
     </Drawer>
   );
 }
@@ -184,60 +245,108 @@ function HistoryItem({ item }: { item: HistoryEntry }) {
   };
 
   return (
-    <li className="relative group">
-      <Link
-        href={href}
-        onClick={() => {
-          // 点击即同步一次时间戳，置顶最近观看
-          upsertHistory({ ...item, timestamp: Date.now() }).catch(() => {});
-        }}
-        className="block bg-card hover:bg-hover rounded-lg p-3 pr-10 transition-colors"
+    <li>
+      <Card
+        size="small"
+        hoverable
+        styles={{ body: { padding: 0 } }}
+        style={{ position: 'relative' }}
       >
-        <div className="flex items-center gap-3">
-          {item.pic && !imgFailed ? (
-            <SmartImage
-              url={item.pic}
-              mode={imageProxyMode}
-              customProxy={customImageProxy}
-              alt=""
-              className="w-10 h-14 object-cover rounded bg-chip"
-              onExhausted={() => setImgFailed(true)}
-            />
-          ) : (
-            <div className="w-10 h-14 rounded bg-chip flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16m10-16v16M7 8h10M7 12h10" />
-              </svg>
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-content truncate">{item.title}</div>
-            <div className="text-xs text-faint mt-0.5 flex items-center gap-1.5 flex-wrap">
-              {item.totalEpisodes > 0 && <span>第 {item.episodeIndex + 1}/{item.totalEpisodes} 集</span>}
-              {hasPercent && <span>· {formatTime(item.playbackPosition)}</span>}
-              <span>· {formatRelativeTime(item.timestamp)}</span>
-            </div>
-            {hasPercent && (
-              <div className="mt-1.5 h-1 bg-hover rounded-full overflow-hidden">
-                <div className="h-full bg-accent" style={{ width: `${percent}%` }} />
-              </div>
+        <Link
+          href={href}
+          onClick={() => {
+            // 点击即同步一次时间戳，置顶最近观看
+            upsertHistory({ ...item, timestamp: Date.now() }).catch(() => {});
+          }}
+          style={{
+            display: 'block',
+            backgroundColor: 'var(--ant-color-bg-container)',
+            borderRadius: 'var(--ant-border-radius-lg)',
+            padding: 12,
+            paddingInlineEnd: 40,
+          }}
+        >
+          <Flex align="center" gap={12}>
+            {item.pic && !imgFailed ? (
+              <SmartImage
+                url={item.pic}
+                mode={imageProxyMode}
+                customProxy={customImageProxy}
+                alt=""
+                style={{
+                  width: 40,
+                  height: 56,
+                  objectFit: 'cover',
+                  borderRadius: 'var(--ant-border-radius-sm)',
+                  backgroundColor: 'var(--ant-color-fill-tertiary)',
+                }}
+                onExhausted={() => setImgFailed(true)}
+              />
+            ) : (
+              <Flex
+                style={{
+                  width: 40,
+                  height: 56,
+                  borderRadius: 'var(--ant-border-radius-sm)',
+                  backgroundColor: 'var(--ant-color-fill-tertiary)',
+                  flexShrink: 0,
+                }}
+
+                align="center"
+                justify="center"
+              >
+                <VideoCameraOutlined
+                  style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 16 }}
+                  aria-hidden
+                />
+              </Flex>
             )}
-          </div>
-        </div>
-      </Link>
-      <button
-        className={cn(
-          'absolute right-2 top-2 p-2 rounded-full text-faint hover:text-danger',
-          'opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity'
-        )}
-        aria-label="删除记录"
-        title="删除记录（可在提示中撤销）"
-        onClick={remove}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+            <Flex vertical style={{ minWidth: 0, flex: '1 1 0%' }}>
+              <Typography.Text
+                ellipsis
+                style={{
+                  fontSize: 'var(--ant-font-size)',
+                  fontWeight: 500,
+
+                  minWidth: 0,
+                }}
+              >
+                {item.title}
+              </Typography.Text>
+              <Flex
+                style={{
+                  fontSize: 'var(--ant-font-size-sm)',
+                  color: 'var(--ant-color-text-tertiary)',
+                  marginTop: 2,
+                }}
+                align="center"
+                gap={6}
+                wrap
+              >
+                {item.totalEpisodes > 0 && (
+                  <Typography.Text>
+                    第 {item.episodeIndex + 1}/{item.totalEpisodes} 集
+                  </Typography.Text>
+                )}
+                {hasPercent && (
+                  <Typography.Text>· {formatTime(item.playbackPosition)}</Typography.Text>
+                )}
+                <Typography.Text>· {formatRelativeTime(item.timestamp)}</Typography.Text>
+              </Flex>
+              {hasPercent && <Progress percent={percent} showInfo={false} size="small" />}
+            </Flex>
+          </Flex>
+        </Link>
+        <Button
+          type="text"
+          style={{ position: 'absolute', right: 8, top: 8 }}
+          aria-label="删除记录"
+          title="删除记录（可在提示中撤销）"
+          onClick={remove}
+        >
+          <CloseOutlined style={{ fontSize: 16 }} aria-hidden />
+        </Button>
+      </Card>
     </li>
   );
 }

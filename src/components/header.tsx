@@ -1,35 +1,65 @@
 'use client';
 
+import {
+  PlaySquareOutlined,
+  SearchOutlined,
+  ClockCircleOutlined,
+  DownloadOutlined,
+  SettingOutlined,
+  HomeOutlined,
+  VideoCameraOutlined,
+  DesktopOutlined,
+  PlayCircleOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons';
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  Button,
+  Tooltip,
+  AutoComplete,
+  Menu,
+  Flex,
+  Layout,
+  Grid,
+  Typography,
+  Badge,
+  Form,
+} from 'antd';
 import { ThemeToggle } from './theme';
 import { SourceManagerDrawer } from './source-manager';
 import { HistoryPanel } from './history-panel';
 import { requestShowDownloadManager } from './download-manager';
-import { Icon } from './icon';
-import { SearchHistoryDropdown, useSearchHistory } from './search-history';
-import { cn } from '@/lib/utils';
 
-/** 顶部导航：Logo、搜索框（首页外）、历史、设置 */
-export function Header({ showSearch = false }: { showSearch?: boolean }) {
+import { useSearchHistory } from './search-history';
+import { useAuth } from './auth';
+
+export function Header({
+  showSearch = false,
+  cinema = false,
+}: {
+  showSearch?: boolean;
+  cinema?: boolean;
+}) {
+  const screens = Grid.useBreakpoint();
+  const desktop = !!screens.md;
+  const sidebarWidth = screens.xl ? 214 : 180;
   const router = useRouter();
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [query, setQuery] = useState('');
-  // 与首页搜索框共用同一套「最近搜索」下拉逻辑
   const searchHistory = useSearchHistory(query);
+  const { checked, verified, openLogin } = useAuth();
 
   const submitSearch = (text: string) => {
     const q = text.trim().slice(0, 100);
     if (!q) return;
     searchHistory.close();
     router.push(`/?s=${encodeURIComponent(q)}`, { scroll: false });
-    // 顶栏搜索一并写入最近搜索（此前只有首页会记录）
     searchHistory.record(q);
   };
-
   const pickHistory = (text: string) => {
     setQuery(text);
     submitSearch(text);
@@ -37,115 +67,263 @@ export function Header({ showSearch = false }: { showSearch?: boolean }) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-line">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href="/" aria-label="LibreTV 首页" className="flex items-center shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-512.png" alt="LibreTV" className="w-7 h-7 rounded-lg" />
+      <Layout.Header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          height: desktop ? 80 : 64,
+          paddingInline: desktop ? 32 : 16,
+          background: 'color-mix(in srgb, var(--ant-color-bg-layout) 96%, transparent)',
+          borderBottom: '1px solid var(--ant-color-border-secondary)',
+          backdropFilter: 'blur(18px)',
+          lineHeight: 'normal',
+        }}
+      >
+        <Flex
+          align="center"
+          gap={desktop ? 28 : 8}
+          style={{ height: '100%', maxWidth: 1600, marginInline: 'auto' }}
+        >
+          <Link href="/" aria-label="LibreTV 首页">
+            <Flex align="center" gap={8}>
+              <PlaySquareOutlined
+                style={{ fontSize: 34, color: 'var(--ant-color-primary)' }}
+                aria-hidden
+              />
+              <Flex vertical gap={2}>
+                <Typography.Text strong style={{ fontSize: 22, lineHeight: 1.1 }}>
+                  Libre
+                  <Typography.Text style={{ color: 'var(--ant-color-primary)' }}>
+                    TV
+                  </Typography.Text>
+                </Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 7, letterSpacing: 2 }}>
+                  PERSONAL CINEMA
+                </Typography.Text>
+              </Flex>
+            </Flex>
           </Link>
+          {screens.sm && (
+            <Menu
+              mode="horizontal"
 
-          {showSearch && (
-            <form
-              className="flex-1 max-w-xl hidden sm:block"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitSearch(query);
+              selectedKeys={[pathname]}
+              style={{
+                background: 'transparent',
+                borderBottom: 0,
+                minWidth: 170,
+                lineHeight: desktop ? '80px' : '64px',
               }}
-            >
-              <div ref={searchHistory.containerRef} className="relative">
-                <input
-                  className={cn(
-                    'input w-full h-9',
-                    // 展开时：上圆角与外框沿用聚焦样式，底边改为内部分隔线，与下拉拼成同一面板
-                    searchHistory.visible &&
-                      'rounded-b-none border-accent border-b-line bg-surface-raised focus-visible:ring-0'
-                  )}
-                  aria-label="搜索影片"
-                  placeholder="搜索影片..."
-                  value={query}
-                  maxLength={100}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    searchHistory.resetActive();
-                  }}
-                  onFocus={searchHistory.onFocus}
-                  onKeyDown={(e) => searchHistory.onKeyDown(e, pickHistory)}
-                  role="combobox"
-                  aria-expanded={searchHistory.visible}
-                  aria-controls="header-search-history"
-                  aria-autocomplete="list"
-                  aria-activedescendant={
-                    searchHistory.visible && searchHistory.activeIndex >= 0
-                      ? `header-search-history-${searchHistory.activeIndex}`
-                      : undefined
-                  }
-                />
-                {searchHistory.visible && (
-                  <SearchHistoryDropdown
-                    id="header-search-history"
-                    matches={searchHistory.matches}
-                    activeIndex={searchHistory.activeIndex}
-                    onPick={pickHistory}
-                    onRemove={searchHistory.remove}
-                    onClearAll={searchHistory.clearAll}
-                  />
-                )}
-              </div>
-            </form>
+              items={[
+                { key: '/', label: <Link href="/">我的影院</Link> },
+                { key: '/live', label: <Link href="/live">电视直播</Link> },
+              ]}
+            />
           )}
-
-          <div className="flex-1 sm:hidden" />
-
-          <nav className="flex items-center gap-1 ml-auto">
-            <HeaderLink href="/live" active={pathname === '/live'}>
-              直播
-            </HeaderLink>
-            <HeaderLink href="/about" active={pathname === '/about'}>
-              关于
-            </HeaderLink>
+          {showSearch && desktop && (
+            <Form style={{ flex: 1, maxWidth: 420 }} onFinish={() => submitSearch(query)}>
+              <AutoComplete
+                style={{ minWidth: 0, width: '100%', flex: '1 1 0%' }}
+                value={query}
+                options={searchHistory.options}
+                open={searchHistory.open}
+                onOpenChange={searchHistory.onOpenChange}
+                onFocus={() => searchHistory.onOpenChange(true)}
+                onChange={(value) => setQuery((value ?? '').slice(0, 100))}
+                onSelect={pickHistory}
+                popupRender={searchHistory.popupRender}
+                defaultActiveFirstOption={false}
+                allowClear
+                prefix={<SearchOutlined style={{ fontSize: 16 }} aria-hidden />}
+                aria-label="搜索影片"
+                placeholder="搜索电影、剧集，发现好故事…"
+              />
+            </Form>
+          )}
+          <Flex align="center" gap={desktop ? 4 : 0} style={{ marginInlineStart: 'auto' }}>
+            {screens.xl && (
+              <Badge
+                color="#9cae80"
+                text={
+                  <Typography.Text type="secondary" style={{ fontSize: 11, marginRight: 16 }}>
+                    私人放映室
+                  </Typography.Text>
+                }
+              />
+            )}
             <ThemeToggle />
-            <IconButton label="观看历史" onClick={() => setHistoryOpen(true)}>
-              <Icon name="clock" />
-            </IconButton>
-            <IconButton label="下载管理" onClick={requestShowDownloadManager}>
-              <Icon name="download" />
-            </IconButton>
-            <IconButton label="设置" onClick={() => setSettingsOpen(true)}>
-              <Icon name="gear" />
-            </IconButton>
-          </nav>
-        </div>
-      </header>
-
+            <Tooltip title={'观看历史'}>
+              <Button
+                type="text"
+                aria-label={'观看历史'}
+                onClick={() => setHistoryOpen(true)}
+                icon={<ClockCircleOutlined style={{ fontSize: 18 }} aria-hidden />}
+              />
+            </Tooltip>
+            <Tooltip title={'下载管理'}>
+              <Button
+                type="text"
+                aria-label={'下载管理'}
+                onClick={requestShowDownloadManager}
+                icon={<DownloadOutlined style={{ fontSize: 18 }} aria-hidden />}
+              />
+            </Tooltip>
+            <Tooltip title={'设置'}>
+              <Button
+                type="text"
+                aria-label={'设置'}
+                onClick={() => setSettingsOpen(true)}
+                icon={<SettingOutlined style={{ fontSize: 18 }} aria-hidden />}
+              />
+            </Tooltip>
+            {!cinema && desktop && (
+              <Link
+                href="/about"
+                style={{
+                  fontSize: 'var(--ant-font-size)',
+                  color: 'var(--ant-color-text-secondary)',
+                }}
+              >
+                关于
+              </Link>
+            )}
+            {checked && !verified && (
+              <Button size="small" onClick={openLogin}>
+                访问验证
+              </Button>
+            )}
+          </Flex>
+        </Flex>
+      </Layout.Header>
+      {cinema && !desktop && (
+        <Menu
+          mode="horizontal"
+          selectedKeys={['home']}
+          style={{
+            position: 'sticky',
+            top: 64,
+            zIndex: 30,
+            background: 'var(--ant-color-bg-layout)',
+          }}
+          items={[
+            {
+              key: 'home',
+              label: <Link href="/">影院首页</Link>,
+              icon: <HomeOutlined style={{ fontSize: 18 }} aria-hidden />,
+            },
+            {
+              key: 'discover',
+              label: <Link href="/#discover">探索片库</Link>,
+              icon: <VideoCameraOutlined style={{ fontSize: 18 }} aria-hidden />,
+            },
+            {
+              key: 'live',
+              label: <Link href="/live">电视直播</Link>,
+              icon: <DesktopOutlined style={{ fontSize: 18 }} aria-hidden />,
+            },
+          ]}
+        />
+      )}
+      {cinema && desktop && (
+        <Layout.Sider
+          width={sidebarWidth}
+          collapsed={!desktop}
+          collapsedWidth={0}
+          trigger={null}
+          aria-label="影院导航"
+          style={{
+            position: 'fixed',
+            top: 80,
+            bottom: 0,
+            left: 0,
+            zIndex: 30,
+            background: 'var(--ant-color-bg-layout)',
+            borderInlineEnd: '1px solid var(--ant-color-border-secondary)',
+            overflowY: 'auto',
+          }}
+        >
+          <Flex
+            vertical
+            justify="space-between"
+            style={{ height: '100%', padding: '28px 12px 20px' }}
+          >
+            <Menu
+              mode="inline"
+              selectedKeys={['home']}
+              style={{ background: 'transparent', borderInlineEnd: 0 }}
+              items={[
+                {
+                  type: 'group',
+                  label: '发现',
+                  children: [
+                    {
+                      key: 'home',
+                      icon: <HomeOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: <Link href="/">影院首页</Link>,
+                    },
+                    {
+                      key: 'discover',
+                      icon: <VideoCameraOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: <Link href="/#discover">探索片库</Link>,
+                    },
+                    {
+                      key: 'live',
+                      icon: <DesktopOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: <Link href="/live">电视直播</Link>,
+                    },
+                  ],
+                },
+                {
+                  type: 'group',
+                  label: '我的空间',
+                  children: [
+                    {
+                      key: 'continue',
+                      icon: <PlayCircleOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: <Link href="/#continue-watching">继续观看</Link>,
+                    },
+                    {
+                      key: 'history',
+                      icon: <ClockCircleOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: '观看历史',
+                      onClick: () => setHistoryOpen(true),
+                    },
+                    {
+                      key: 'downloads',
+                      icon: <DownloadOutlined style={{ fontSize: 18 }} aria-hidden />,
+                      label: '下载管理',
+                      onClick: requestShowDownloadManager,
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Flex vertical gap={24} style={{ paddingTop: 32 }}>
+              <Menu
+                mode="inline"
+                selectable={false}
+                style={{ background: 'transparent', borderInlineEnd: 0 }}
+                items={[
+                  {
+                    key: 'settings',
+                    icon: <SettingOutlined style={{ fontSize: 18 }} aria-hidden />,
+                    label: '影院设置',
+                    onClick: () => setSettingsOpen(true),
+                  },
+                  {
+                    key: 'about',
+                    icon: <InfoCircleOutlined style={{ fontSize: 18 }} aria-hidden />,
+                    label: <Link href="/about">关于 LibreTV</Link>,
+                  },
+                ]}
+              />
+            </Flex>
+          </Flex>
+        </Layout.Sider>
+      )}
       <SourceManagerDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </>
-  );
-}
-
-function HeaderLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'px-2.5 py-1.5 rounded-md text-sm transition-colors',
-        active ? 'text-content bg-hover' : 'text-muted hover:text-content'
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      className="p-2 rounded-md text-muted hover:text-content hover:bg-hover transition-colors"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }

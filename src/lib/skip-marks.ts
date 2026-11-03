@@ -32,11 +32,11 @@ export interface SkipMark {
   updatedAt: number;
 }
 
-/** 三类片段在进度条色带与图例中的颜色（player-shell / skip-mark-panel 共用） */
+/** Player bands and panel legends share the Ant Design palette. */
 export const SEGMENT_COLORS: Record<SkipSegmentType, string> = {
-  opening: 'rgba(37,99,235,0.45)',
-  middle: 'rgba(148,163,184,0.45)',
-  ending: 'rgba(249,115,22,0.45)',
+  opening: 'color-mix(in srgb, var(--ant-blue-6) 45%, transparent)',
+  middle: 'color-mix(in srgb, var(--ant-color-text-light-solid) 45%, transparent)',
+  ending: 'color-mix(in srgb, var(--ant-orange-6) 45%, transparent)',
 };
 
 /** 三类片段的展示名（面板列表 / 进度条 tooltip 共用） */
@@ -67,7 +67,11 @@ export const MAX_CONTINUOUS_STEP_SECONDS = 10;
 /** 播放页在拿不到真实标题时使用的占位文案（watch/page.tsx 复用，避免双处硬编码） */
 export const UNKNOWN_TITLE = '未知视频';
 
-const SEGMENT_TYPES: ReadonlySet<string> = new Set<SkipSegmentType>(['opening', 'middle', 'ending']);
+const SEGMENT_TYPES: ReadonlySet<string> = new Set<SkipSegmentType>([
+  'opening',
+  'middle',
+  'ending',
+]);
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -166,7 +170,8 @@ function normalizeSegment(seg: SkipSegment | undefined, duration: number): Resol
  * ending 的 end 用实际时长填充；重叠或过近的片段保留靠前者、丢弃后者。
  */
 export function resolveSegments(mark: SkipMark | undefined, duration: number): ResolvedSegment[] {
-  if (!mark || !Array.isArray(mark.segments) || !isFiniteNumber(duration) || duration <= 0) return [];
+  if (!mark || !Array.isArray(mark.segments) || !isFiniteNumber(duration) || duration <= 0)
+    return [];
   // 本剧总开关关闭：保留标记但一格都不生效（缺省视为开启，兼容旧快照）
   if (mark.enabled === false) return [];
 
@@ -189,7 +194,7 @@ export function resolveSegments(mark: SkipMark | undefined, duration: number): R
 /** 当前位置是否落在某个跳过片段内（用于显示「跳过」按钮与自动跳转） */
 export function findActiveSegment(
   segments: ResolvedSegment[],
-  position: number
+  position: number,
 ): ResolvedSegment | undefined {
   if (!isFiniteNumber(position)) return undefined;
   return segments.find((s) => position >= s.start && position < s.end - PROMPT_GUARD_SECONDS);
@@ -203,7 +208,7 @@ export function findActiveSegment(
 export function findCrossedEnding(
   segments: ResolvedSegment[],
   previous: number,
-  current: number
+  current: number,
 ): boolean {
   if (!isFiniteNumber(previous) || !isFiniteNumber(current)) return false;
   const step = current - previous;
@@ -218,7 +223,7 @@ export function findCrossedEnding(
 export function validateSegment(
   segment: SkipSegment,
   duration: number,
-  existing: SkipSegment[] = []
+  existing: SkipSegment[] = [],
 ): string | null {
   if (!segment || !SEGMENT_TYPES.has(segment.type)) return '片段类型无效';
   if (!isFiniteNumber(segment.start) || segment.start < 0) return '片段起点无效';

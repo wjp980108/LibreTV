@@ -1,5 +1,6 @@
 'use client';
 
+import { Layout, Flex, Typography, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth';
 
@@ -67,43 +68,41 @@ function useUpstreamUpdate(current: string | null): UpstreamUpdate | null {
   return state;
 }
 
-/** 页脚仓库链接上的悬停提示：显示更新检测结果 */
-function UpdateTip({ update }: { update: UpstreamUpdate | null }) {
-  const tip =
-    update === null
-      ? null
-      : update.status === 'newer'
-        ? `发现新版本 v${update.latest}`
-        : update.status === 'latest'
-          ? '已是最新版本'
-          : '正在检测更新…';
-  if (!tip) return null;
-  return (
-    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-chip px-2 py-1 text-faint shadow-xs group-hover:block">
-      {tip}
-    </span>
-  );
-}
-
 /** 全站统一页脚：仓库链接 + 版本号（悬停显示上游更新检测结果） */
 export function SiteFooter() {
   const { version } = useAuth();
   const upstreamUpdate = useUpstreamUpdate(version);
+  const tip =
+    upstreamUpdate?.status === 'newer'
+      ? `发现新版本 v${upstreamUpdate.latest}`
+      : upstreamUpdate?.status === 'latest'
+        ? '已是最新版本'
+        : upstreamUpdate
+          ? '正在检测更新…'
+          : undefined;
   return (
-    <footer className="border-t border-line py-4">
-      <p className="text-center text-xs text-faint">
-        <a
-          href="https://github.com/LibreSpark/LibreTV"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative inline-block cursor-help hover:text-accent"
-        >
-          LibreTV{version ? ` v${version}` : ''}
-          {version && <UpdateTip update={upstreamUpdate} />}
-        </a>
-        {' · '}
-        AGPL-3.0 License
-      </p>
-    </footer>
+    <Layout.Footer
+      style={{
+        padding: '20px 16px',
+        borderTop: '1px solid var(--ant-color-border-secondary)',
+        background: 'transparent',
+      }}
+    >
+      <Flex align="center" justify="center" wrap gap={6}>
+        <Tooltip title={tip}>
+          <Typography.Link
+            href="https://github.com/LibreSpark/LibreTV"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12 }}
+          >
+            LibreTV{version ? ` v${version}` : ''}
+          </Typography.Link>
+        </Tooltip>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          · AGPL-3.0 License
+        </Typography.Text>
+      </Flex>
+    </Layout.Footer>
   );
 }

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="650" viewBox="0 0 1600 650" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="1000" y1="0" x2="1000" y2="650" gradientUnits="userSpaceOnUse"><stop stop-color="#1e2926"/><stop offset=".55" stop-color="#7d7053"/><stop offset="1" stop-color="#b28c58"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ead3a4" stop-opacity=".42"/><stop offset="1" stop-color="#ead3a4" stop-opacity="0"/></radialGradient>
+    <linearGradient id="dune" x1="1000" y1="290" x2="1150" y2="650" gradientUnits="userSpaceOnUse"><stop stop-color="#aa8d61"/><stop offset=".4" stop-color="#6e6249"/><stop offset="1" stop-color="#272e26"/></linearGradient>
+    <linearGradient id="front" x1="1200" y1="380" x2="1250" y2="650" gradientUnits="userSpaceOnUse"><stop stop-color="#57553e"/><stop offset="1" stop-color="#222a23"/></linearGradient>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".075"/></feComponentTransfer><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <g filter="url(#grain)">
+    <path fill="url(#sky)" d="M0 0h1600v650H0z"/>
+    <ellipse cx="1130" cy="230" rx="460" ry="390" fill="url(#glow)"/>
+    <circle cx="1140" cy="215" r="91" fill="#e0c79a" opacity=".88"/>
+    <circle cx="1140" cy="215" r="111" stroke="#d4c39c" stroke-opacity=".15"/>
+    <circle cx="1140" cy="215" r="143" stroke="#d4c39c" stroke-opacity=".08"/>
+    <path d="M0 450 140 399 315 447 595 318 730 360 915 288 1100 370 1270 300 1435 351 1600 295V650H0Z" fill="#575c48" opacity=".55"/>
+    <path d="M0 560C350 470 615 530 870 401c175-88 363-52 730 72v177H0Z" fill="url(#dune)"/>
+    <path d="M720 650c230-164 370-172 489-217 117-45 241-112 391-134v351Z" fill="url(#front)"/>
+    <path d="M1209 433c117-45 241-112 391-134" stroke="#b4a177" stroke-opacity=".45"/>
+    <path d="M0 610c390-131 673-32 943 40H0Z" fill="#202820"/>
+    <g fill="#171e19"><circle cx="1204" cy="409" r="3.5"/><path d="m1200 414-3 20 5 1 1-10 2 10h5l-4-21Z"/><path d="m1202 432-3 13h2l4-12 3 12h2l-2-14Z"/></g>
+    <path d="m1202 445 53 13" stroke="#20251c" stroke-width="2" opacity=".5"/>
+    <path d="M900 88h18m-9-9v18M1470 126h10m-5-5v10" stroke="#e6d3a9" stroke-opacity=".35"/>
+  </g>
+</svg>

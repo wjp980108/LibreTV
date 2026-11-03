@@ -2,9 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ToastProvider } from './toast';
 import { AuthProvider } from './auth';
 import { ThemeProvider } from './theme';
+import { AntdProvider } from './antd-provider';
 import { GlobalDownloadManager } from './download-manager';
 import { useAppStore, hydrateLiveProbeResults } from '@/lib/store';
 import { api, STATUS_QUERY_KEY } from '@/lib/client-api';
@@ -17,7 +17,7 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 60_000 },
         },
-      })
+      }),
   );
 
   // store 配置了 skipHydration：等挂载后再读 localStorage，
@@ -46,12 +46,11 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <ToastProvider>
-          {/* 全站常驻：下载事件监听（enqueueDownload）依赖它存在——
-              挂在 Header 里会让 /watch 等不渲染 Header 的页面派发的事件凭空丢失 */}
+        <AntdProvider>
+          {/* 全站常驻：下载事件监听依赖它存在，包括不渲染 Header 的播放页面。 */}
           <GlobalDownloadManager />
           <AuthProvider>{children}</AuthProvider>
-        </ToastProvider>
+        </AntdProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

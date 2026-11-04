@@ -17,7 +17,6 @@ import {
   Modal,
   Input,
   Select,
-  Drawer,
   Switch,
   Segmented,
   Upload,
@@ -37,6 +36,7 @@ import type { DefaultOptionType } from 'antd/es/select';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { LiveSourceManager } from './live-source-manager';
+import { AppDrawer as Drawer } from './app-drawer';
 import { HealthBadge, TestBadge, useSourceTests, type TestState } from './settings-shared';
 import {
   loadCacheSettings,
@@ -1164,7 +1164,7 @@ function SourceSubscriptions() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `LibreTV-SourceList_${Date.now()}.json`;
+    a.download = `Meet-you-SourceList_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast(
@@ -1289,7 +1289,7 @@ function SourceSubscriptions() {
         <Input
           style={{ minWidth: 0, flex: '1 1 0%' }}
 
-          placeholder="订阅地址（LibreTV 源列表或 TVBOX 配置的 JSON URL）"
+          placeholder="订阅地址（源列表或 TVBOX 配置的 JSON URL）"
           value={subUrl}
           onChange={(e) => setSubUrl(e.target.value)}
           onKeyDown={(e) => {
@@ -1312,7 +1312,7 @@ function SourceSubscriptions() {
           type="secondary"
           style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
         >
-          一份订阅可同时下发点播源与直播源，支持 LibreTV 源列表与 TVBOX
+          一份订阅可同时下发点播源与直播源，支持源列表与 TVBOX
           配置（仅导入可直接使用的接口，Spider 类站点自动跳过）； 「导出数据源」生成的 JSON
           托管到任意 URL 即可分享给他人订阅。
         </Typography.Paragraph>
@@ -1530,7 +1530,7 @@ function ConfigIoPanel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `LibreTV-Settings_${Date.now()}.json`;
+      a.download = `Meet-you-Settings_${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
       toast('配置已导出', 'success');
@@ -1621,7 +1621,7 @@ function summarizeConfig(text: string): string {
   } catch {
     throw new Error('文件不是合法的 JSON');
   }
-  if (cfg.name !== 'LibreTV-Settings') throw new Error('不是 LibreTV 的配置文件');
+  if (cfg.name !== 'LibreTV-Settings') throw new Error('配置文件格式不正确');
 
   const parts: string[] = [];
   const settingsRaw = cfg.data?.[PERSIST_KEY];

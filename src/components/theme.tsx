@@ -4,24 +4,26 @@ import { Button, Tooltip } from 'antd';
 import { DesktopOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { readThemeChoice, THEME_STORAGE_KEY, type ThemeChoice } from '@/lib/theme-preference';
 
 /**
  * 主题上下文：light / dark / system，持久化到 localStorage，默认 dark。
  * html 上的 .dark 类由 layout 中的内联脚本先行设置（避免首屏闪烁），此处负责后续切换。
  */
 
-export type ThemeChoice = 'light' | 'dark' | 'system';
-const STORAGE_KEY = 'libretv-theme';
+export type { ThemeChoice } from '@/lib/theme-preference';
 
 interface ThemeContextValue {
   theme: ThemeChoice;
   resolved: 'light' | 'dark';
+  ready: boolean;
   setTheme: (t: ThemeChoice) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'dark',
   resolved: 'dark',
+  ready: false,
   setTheme: () => {},
 });
 
@@ -42,15 +44,17 @@ function apply(choice: ThemeChoice): 'light' | 'dark' {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeChoice>('dark');
   const [resolved, setResolved] = useState<'light' | 'dark'>('dark');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) as ThemeChoice | null) || 'dark';
+    const stored = readThemeChoice();
     setThemeState(stored);
     setResolved(apply(stored));
+    setReady(true);
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => {
-      const current = (localStorage.getItem(STORAGE_KEY) as ThemeChoice | null) || 'dark';
+      const current = readThemeChoice();
       if (current === 'system') {
         setResolved(apply('system'));
       }
@@ -60,13 +64,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setTheme = useCallback((t: ThemeChoice) => {
-    localStorage.setItem(STORAGE_KEY, t);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, t);
+    } catch {
+      // Theme switching remains available when persistence is blocked.
+    }
     setThemeState(t);
     setResolved(apply(t));
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolved, setTheme }}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, resolved, ready, setTheme }}>{children}</ThemeContext.Provider>
   );
 }
 

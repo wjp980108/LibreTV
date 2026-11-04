@@ -5,7 +5,6 @@ import {
   Input,
   Button,
   Modal,
-  Drawer,
   Spin,
   Empty,
   Space,
@@ -21,6 +20,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import Link from 'next/link';
 
 import { SmartImage } from './smart-image';
+import { AppDrawer as Drawer } from './app-drawer';
 import {
   db,
   clearAllHistory,

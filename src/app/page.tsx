@@ -20,10 +20,10 @@ import {
   Flex,
   Alert,
 } from 'antd';
-import { CinemaHero, ContinueWatching } from '@/components/cinema-home';
+import cinemaStyles from '@/components/cinema.module.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Header } from '@/components/header';
+import { Header, CINEMA_SIDEBAR_WIDTH } from '@/components/header';
 import { RecommendSection } from '@/components/douban-section';
 import { DetailModal } from '@/components/detail-modal';
 import { AggregatedCard, aggregateResults } from '@/components/video-card';
@@ -59,7 +59,7 @@ export default function HomePage() {
 function HomeContent() {
   const screens = Grid.useBreakpoint();
   const desktop = !!screens.md;
-  const sidebarWidth = screens.xl ? 214 : 180;
+  const sidebarWidth = CINEMA_SIDEBAR_WIDTH;
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -161,7 +161,8 @@ function HomeContent() {
       toast('请先在设置中添加并勾选点播源', 'warning');
       return;
     }
-    router.push(`/?s=${encodeURIComponent(query)}`, { scroll: false });
+    router.push(`/?s=${encodeURIComponent(query)}`);
+    window.scrollTo({ top: 0, behavior: 'auto' });
     searchHistory.record(query);
   };
 
@@ -191,90 +192,45 @@ function HomeContent() {
   const visibleGroups = useMemo(() => groups.slice(0, visibleCount), [groups, visibleCount]);
   useEffect(() => setVisibleCount(RESULT_PAGE_SIZE), [groups]);
 
+  const searchForm = (
+    <Form style={{ width: '100%' }} onFinish={() => runSearch(input)}>
+      <Space.Compact block size="large">
+        <AutoComplete
+          className="header-search-input"
+          style={{ minWidth: 0, width: '100%', flex: '1 1 0%' }}
+          value={input}
+          options={searchHistory.options}
+          open={searchHistory.open}
+          onOpenChange={searchHistory.onOpenChange}
+          onFocus={() => searchHistory.onOpenChange(true)}
+          onChange={(value) => setInput((value ?? '').slice(0, 100))}
+          onSelect={pickHistory}
+          popupRender={searchHistory.popupRender}
+          defaultActiveFirstOption={false}
+          ref={inputRef}
+          allowClear
+          prefix={<SearchOutlined aria-hidden />}
+          aria-label="搜索影片"
+          placeholder="搜索电影、剧集、动漫"
+        />
+        <Button className="header-search-button" type="primary" htmlType="submit" aria-label="搜索">
+          搜索
+        </Button>
+      </Space.Compact>
+    </Form>
+  );
+
   return (
-    <Layout hasSider={false} className="min-h-dvh bg-page">
-      <Header cinema />
+    <Layout hasSider={false} data-cinema-layout className={`min-h-dvh ${cinemaStyles.shell}`}>
+      <Header cinema searchForm={searchForm} />
 
       <Layout.Content
-        className="min-w-0"
+        className={`min-w-0 ${cinemaStyles.content}`}
         style={{
           marginInlineStart: desktop ? sidebarWidth : 0,
-          padding: desktop ? '32px 32px 48px' : '24px 16px 32px',
         }}
       >
-        <Flex vertical gap={28} className="mx-auto max-w-[1560px]">
-          <Flex
-            component="section"
-            vertical={!screens.lg}
-            align={screens.lg ? 'center' : 'stretch'}
-            justify="space-between"
-            gap={20}
-            aria-label="搜索影片"
-          >
-            <Flex vertical>
-              <Typography.Text style={{ fontSize: 10, letterSpacing: 1.8, fontWeight: 500 }}>
-                YOUR PERSONAL CINEMA
-              </Typography.Text>
-              <Typography.Title style={{ margin: 0, fontSize: 22, lineHeight: 1.45 }} level={1}>
-                {urlQuery ? (
-                  '寻找你的下一部好片'
-                ) : (
-                  <>
-                    欢迎回到你的影院
-                    <Typography.Text
-                      type="secondary"
-                      style={{ fontSize: 11, marginInlineStart: 12 }}
-                    >
-                      好故事，随时开场。
-                    </Typography.Text>
-                  </>
-                )}
-              </Typography.Title>
-            </Flex>
-            <Form
-              style={{ width: screens.lg ? 350 : '100%', maxWidth: '100%' }}
-              onFinish={() => runSearch(input)}
-            >
-              <Space.Compact block>
-                <AutoComplete
-                  style={{ minWidth: 0, width: '100%', flex: '1 1 0%' }}
-                  value={input}
-                  options={searchHistory.options}
-                  open={searchHistory.open}
-                  onOpenChange={searchHistory.onOpenChange}
-                  onFocus={() => searchHistory.onOpenChange(true)}
-                  onChange={(value) => setInput((value ?? '').slice(0, 100))}
-                  onSelect={pickHistory}
-                  popupRender={searchHistory.popupRender}
-                  defaultActiveFirstOption={false}
-                  ref={inputRef}
-                  allowClear
-                  prefix={<SearchOutlined style={{ fontSize: 16 }} aria-hidden />}
-                  aria-label="搜索影片"
-                  placeholder="搜索电影、剧集，发现好故事…"
-                />
-                <Button type="primary" htmlType="submit" aria-label="搜索">
-                  搜索
-                </Button>
-              </Space.Compact>
-            </Form>
-          </Flex>
-
-          {!urlQuery && (
-            <>
-              <CinemaHero
-                onSearch={() => {
-                  inputRef.current?.focus();
-                  inputRef.current?.nativeElement?.scrollIntoView({
-                    block: 'center',
-                    behavior: 'smooth',
-                  });
-                }}
-              />
-              <ContinueWatching />
-            </>
-          )}
-
+        <div className={cinemaStyles.contentInner}>
           {/* 搜索结果 */}
           {urlQuery && (
             <Flex vertical component="section" aria-label="搜索结果" style={{ marginBottom: 40 }}>
@@ -414,7 +370,7 @@ function HomeContent() {
               }}
             />
           )}
-        </Flex>
+        </div>
       </Layout.Content>
 
       <Layout style={{ marginInlineStart: desktop ? sidebarWidth : 0 }}>
@@ -448,8 +404,8 @@ function NoSourceGuide({ hasSources = false }: { hasSources?: boolean }) {
       title={hasSources ? '尚未勾选点播源' : '先添加一个点播源'}
       subTitle={
         hasSources
-          ? '点击右上角「设置」，勾选要参与搜索的点播源后重新搜索。'
-          : 'LibreTV 不内置采集站。打开「设置 → 添加 API」，填入 Apple CMS 采集站地址，勾选后即可开始搜索。'
+          ? '打开右上角的「设置」，勾选要参与搜索的点播源后重新搜索。'
+          : 'Meet you 不内置采集站。打开「设置 → 添加 API」，填入 Apple CMS 采集站地址，勾选后即可开始搜索。'
       }
     />
   );

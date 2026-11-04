@@ -5,12 +5,14 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AuthProvider } from './auth';
 import { ThemeProvider } from './theme';
 import { AntdProvider } from './antd-provider';
+import { AppStartupBoundary } from './app-startup';
 import { GlobalDownloadManager } from './download-manager';
 import { useAppStore, hydrateLiveProbeResults } from '@/lib/store';
 import { api, STATUS_QUERY_KEY } from '@/lib/client-api';
 import { applyEnvPresets } from '@/lib/subscription-sync';
 
 export function Providers({ children }: { children: ReactNode }) {
+  const [settingsReady, setSettingsReady] = useState(false);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -23,10 +25,16 @@ export function Providers({ children }: { children: ReactNode }) {
   // store 配置了 skipHydration：等挂载后再读 localStorage，
   // 保证 hydration 阶段客户端与服务端渲染结果一致。
   useEffect(() => {
+    let cancelled = false;
     // 先等持久化状态恢复，再拉服务端下发数据：
     // 避免 setEnvSources/setLiveEnvSources 的勾选合并发生在 rehydrate 之前被覆盖
-    Promise.resolve(useAppStore.persist.rehydrate())
+    Promise.resolve()
+      .then(() => useAppStore.persist.rehydrate())
+      // Invalid or unavailable storage must not leave the startup screen stuck.
+      .catch(() => {})
       .then(() => {
+        if (cancelled) return;
+        setSettingsReady(true);
         // 测活缓存从 IndexedDB 恢复（并顺带搬迁旧 localStorage 快照里的存量），
         // 与下方 /api/status 拉取互不依赖，失败静默
         void hydrateLiveProbeResults();
@@ -38,19 +46,24 @@ export function Providers({ children }: { children: ReactNode }) {
         // 预置数据（DEFAULT_SOURCES / DEFAULT_LIVE_SOURCES / DEFAULT_SUBSCRIPTIONS）
         // 预置订阅要经鉴权接口拉取，首屏这次可能发生在登录之前而 401 静默失败；
         // 登录成功后由 AuthProvider 再调一次 applyEnvPresets 补齐（函数幂等）
-        if (d) return applyEnvPresets(d);
+        if (!cancelled && d) return applyEnvPresets(d);
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AntdProvider>
-          {/* 全站常驻：下载事件监听依赖它存在，包括不渲染 Header 的播放页面。 */}
-          <GlobalDownloadManager />
-          <AuthProvider>{children}</AuthProvider>
-        </AntdProvider>
+        <AppStartupBoundary settingsReady={settingsReady}>
+          <AntdProvider>
+            {/* 全站常驻：下载事件监听依赖它存在，包括不渲染 Header 的播放页面。 */}
+            <GlobalDownloadManager />
+            <AuthProvider>{children}</AuthProvider>
+          </AntdProvider>
+        </AppStartupBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   );

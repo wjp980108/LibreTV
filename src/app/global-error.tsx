@@ -13,13 +13,11 @@ export default function GlobalError({
 }) {
   return (
     <html lang="zh-CN">
-      <body style={{ margin: 0, background: '#121312' }}>
+      <body style={{ margin: 0, background: '#000' }}>
         <ConfigProvider
           locale={zhCN}
           theme={{
             algorithm: theme.darkAlgorithm,
-            token: { colorPrimary: '#d9b878', colorBgBase: '#121312', colorTextBase: '#eeede8' },
-            components: { Button: { primaryColor: '#19170f' } },
           }}
         >
           <Layout style={{ minHeight: '100dvh' }}>

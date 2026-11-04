@@ -1,7 +1,8 @@
 'use client';
 
 import { CloseOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Drawer, Grid, Flex, Layout, Typography, Badge, Card } from 'antd';
+import { Button, Checkbox, Grid, Flex, Layout, Typography, Badge, Card } from 'antd';
+import { AppDrawer as Drawer } from './app-drawer';
 
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';

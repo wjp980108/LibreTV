@@ -1,6 +1,6 @@
 'use client';
 
-import { VideoCameraOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, PlayCircleOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
 import { Card, Tag, Flex, Collapse, Typography, Grid } from 'antd';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -13,6 +13,8 @@ import { SmartImage } from './smart-image';
 import { QualityBadge } from './quality-badge';
 import { useQualityProbe } from './use-quality-probe';
 import { useInView } from './use-in-view';
+import { PosterArtwork } from './poster-artwork';
+import styles from './cinema.module.css';
 
 // —— 跨源同名聚合 ——
 
@@ -328,7 +330,7 @@ export function VideoCard({ item, onClick }: { item: SearchResultItem; onClick: 
   return <AggregatedCard group={buildGroup(item.name, item.year, [item])} onOpen={onClick} />;
 }
 
-/** 推荐海报：Card 负责交互、Typography 负责截断。 */
+/** A poster is the primary surface; secondary controls appear on intent. */
 export function DoubanCard({
   item,
   onClick,
@@ -336,62 +338,21 @@ export function DoubanCard({
   item: { title: string; cover: string; rating?: string };
   onClick: () => void;
 }) {
-  const imageProxyMode = useAppStore((s) => s.imageProxyMode);
-  const customImageProxy = useAppStore((s) => s.customImageProxy);
-  const [imgFailed, setImgFailed] = useState(false);
-  useEffect(() => setImgFailed(false), [item.cover]);
   return (
-    <Card
-      hoverable
-      size="small"
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
+      className={styles.posterCard}
       aria-label={`搜索 ${item.title}`}
       onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onClick();
-        }
-      }}
-      cover={
-        <Flex
-          align="center"
-          justify="center"
-          style={{
-            aspectRatio: '2/3',
-            overflow: 'hidden',
-            background: 'var(--ant-color-fill-tertiary)',
-          }}
-        >
-          {item.cover && !imgFailed ? (
-            <SmartImage
-              url={item.cover}
-              mode={imageProxyMode}
-              customProxy={customImageProxy}
-              alt={item.title}
-              style={{ width: '100%', height: '100%' }}
-              onExhausted={() => setImgFailed(true)}
-            />
-          ) : (
-            <VideoCameraOutlined
-              style={{ fontSize: 32, color: 'var(--ant-color-text-quaternary)' }}
-              aria-hidden
-            />
-          )}
-        </Flex>
-      }
     >
-      <Flex vertical gap={6}>
-        <Typography.Text ellipsis={{ tooltip: item.title }} strong>
-          {item.title}
-        </Typography.Text>
-        {item.rating && (
-          <Tag color="gold" style={{ alignSelf: 'flex-start' }}>
-            ★ {item.rating}
-          </Tag>
+      <span className={styles.posterImage}>
+        <PosterArtwork item={item} />
+        {item.rating && item.rating !== '0' && (
+          <span className={styles.posterRating}><StarFilled aria-hidden />{item.rating}</span>
         )}
-      </Flex>
-    </Card>
+        <span className={styles.posterOverlay} aria-hidden><SearchOutlined /><span>查找片源</span></span>
+      </span>
+      <span className={styles.posterTitle} title={item.title}>{item.title}</span>
+    </button>
   );
 }

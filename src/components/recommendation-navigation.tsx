@@ -70,8 +70,8 @@ export function RecommendationNavigation({ onNavigate }: { onNavigate?: () => vo
           <Menu aria-label="影片分类" mode="inline" selectedKeys={[selectedKey]} items={items}
             className={styles.categoryMenu} style={{ background: 'transparent', borderInlineEnd: 0 }} />
         </ConfigProvider>
-        <div className={styles.sidebarNote} aria-hidden><span />在故事里，<br />与自己相遇。</div>
       </div>
+      <div className={styles.sidebarNote} aria-hidden><span />在故事里，<br />与自己相遇。</div>
     </div>
   );
 }

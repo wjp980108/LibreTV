@@ -135,8 +135,8 @@
 
 .sidebarNote {
   flex-shrink: 0;
-  margin: auto 10px 6px;
-  padding-top: 32px;
+  margin: 0;
+  padding: 20px 24px 26px;
   color: var(--ant-color-text-quaternary);
   font-size: 11px;
   line-height: 1.9;

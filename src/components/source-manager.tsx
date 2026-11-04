@@ -814,9 +814,7 @@ function VideoCachePanel() {
       style={{
         paddingTop: 12,
         marginTop: 12,
-        borderTopWidth: 1,
-        borderStyle: 'solid',
-        borderColor: 'var(--ant-color-border-secondary)',
+        borderTop: '1px solid var(--ant-color-border-secondary)',
       }}
       vertical
       gap={12}
@@ -824,6 +822,7 @@ function VideoCachePanel() {
       <Form.Item
         layout="vertical"
         label={'片段本地缓存'}
+        style={{ marginBottom: 0 }}
         extra={
           '暂停或观看时把后续分片缓存到浏览器本地，二次播放与断网卡顿时直接命中（存储于本机，不计入配置导出）'
         }
@@ -838,17 +837,19 @@ function VideoCachePanel() {
         />
       </Form.Item>
       <Flex
-        style={{ fontSize: 'var(--ant-font-size-sm)', color: 'var(--ant-color-text-tertiary)' }}
         align="center"
         justify="space-between"
+        gap={8}
+        wrap
       >
-        <Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: 'var(--ant-font-size-sm)' }}>
           已缓存 {summary.segments} 个分片 · {formatBytes(summary.bytes)} · {summary.episodes} 集
         </Typography.Text>
         <Button
           type="text"
           htmlType="button"
-
+          size="small"
+          style={{ flexShrink: 0 }}
           disabled={clearing || summary.segments === 0}
           onClick={async () => {
             setClearing(true);

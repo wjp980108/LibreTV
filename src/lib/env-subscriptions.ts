@@ -7,7 +7,7 @@ import { normalizeUrl } from './source-list';
  * 与 DEFAULT_SOURCES / DEFAULT_LIVE_SOURCES 的容错策略一致：解析失败整体忽略。
  *
  * 刻意**不内置任何默认订阅**：预置源必须由部署者显式声明，否则升级即让所有部署
- * 凭空多出第三方源，源失效/被劫持都会变成项目责任（DEFAULT_SOURCES 同理）。
+ * 凭空多出第三方订阅。点播源的项目默认配置见 default-sources.json。
  */
 
 /** 订阅刷新周期缺省值（天）：未写 refreshDays 时按每天检查一次 */

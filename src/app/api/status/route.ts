@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     verified,
     // 构建时由 next.config.ts 从 package.json 注入
     version: process.env.APP_VERSION || 'dev',
-    // 部署者通过 DEFAULT_SOURCES 预置的采集站
+    // 项目默认采集站，支持 DEFAULT_SOURCES 覆盖
     defaultSources: getEnvSources(),
     // 部署者通过 DEFAULT_LIVE_SOURCES 预置的直播源（M3U 订阅）
     defaultLiveSources: getEnvLiveSources(),

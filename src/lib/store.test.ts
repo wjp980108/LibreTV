@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // store.ts 运行时引用 db.ts（IndexedDB），node 测试环境下 mock 掉
 vi.mock('./db', () => ({
@@ -27,6 +27,33 @@ beforeEach(() => {
     yellowFilter: false,
     skipMarks: {},
   });
+});
+
+describe('内置点播源', () => {
+  beforeEach(() => useAppStore.setState({ envSources: [], envKeysSeen: [] }));
+
+  it('首次自动启用，刷新保留用户取消勾选的状态', () => {
+    const sources = [{ key: 'builtin_test', name: '默认源', url: 'https://example.com/vod' }];
+    store().setEnvSources(sources);
+    expect(store().selectedKeys).toEqual(['builtin_test']);
+    store().toggleSourceSelected('builtin_test');
+    store().setEnvSources(sources);
+    expect(store().selectedKeys).toEqual([]);
+  });
+
+  it('已导入的同地址源保留原 key 和停用状态，不重复添加', () => {
+    const imported = { key: 'custom_2', name: '已导入', url: 'https://example.com/vod/' };
+    useAppStore.setState({ customAPIs: [imported] });
+    store().setEnvSources([
+      { key: 'builtin_test', name: '默认源', url: 'https://example.com/vod' },
+      { key: 'builtin_other', name: '其他源', url: 'https://other.example.com/vod' },
+    ]);
+    expect(store().customAPIs).toEqual([imported]);
+    expect(store().envSources.map((source) => source.key)).toEqual(['builtin_other']);
+    expect(store().selectedKeys).toEqual(['builtin_other']);
+  });
+
+  afterEach(() => useAppStore.setState({ envSources: [], envKeysSeen: [] }));
 });
 
 describe('subKeyPrefix / keyBelongsToSubscription', () => {

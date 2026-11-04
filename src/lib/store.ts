@@ -7,11 +7,14 @@ import { migrateSkipMarks, type SkipMark, type SkipSegment } from './skip-marks'
 import { isQualityEntryFresh, mergeQualityEntries, qualityKey } from './quality';
 import { clearLiveProbeResultsDb, loadLiveProbeResults, saveLiveProbeResults } from './db';
 import { PERSIST_KEY, createThrottledStorage } from './persist-storage';
+import { normalizeUrl } from './source-list';
 
 /**
  * 全局设置（zustand + localStorage 持久化）。
  * 旧版把 10+ 个零散 localStorage key 当作跨页面状态总线，这里统一为单一 store。
  */
+
+export const STORE_VERSION = 8;
 
 export interface AppSettings {
   customAPIs: SourceConfig[];
@@ -192,7 +195,7 @@ export interface SourceHealthEntry {
 }
 
 interface AppState extends AppSettings {
-  /** 部署者通过 DEFAULT_SOURCES 环境变量预置的源（服务端下发，不持久化） */
+  /** 项目文件或 DEFAULT_SOURCES 预置的源（服务端下发，不持久化） */
   envSources: SourceConfig[];
   /** 已向用户展示过并自动勾选过的预置源 key（持久化：用户取消勾选后不再反复勾上） */
   envKeysSeen: string[];
@@ -307,7 +310,7 @@ function nextCustomKey(apiList: SourceConfig[]): string {
 }
 
 /**
- * 节流写入的 localStorage 包装已抽至 persist-storage.ts（db.ts 的 importConfig
+ * 节流写入的 localStorage 包装已抽至 persist-storage.ts（config-backup.ts 的 importConfig
  * 需要在直接写盘前 flush 缓冲，而运行时依赖方向是 store → db，不能反向引用）。
  */
 
@@ -401,6 +404,11 @@ export const useAppStore = create<AppState>()(
       setSelectedKeys: (keys) => set({ selectedKeys: keys }),
 
       setEnvSources: (list) => {
+        // 已手动导入的同地址源保留原 key、启停状态和播放关联，避免内置源重复出现。
+        const customUrls = new Set(get().customAPIs.map((source) => normalizeUrl(source.url, true)));
+        list = list.filter((source) =>
+          !source.key.startsWith('builtin_') || !customUrls.has(normalizeUrl(source.url, true))
+        );
         // 预置源首次出现时自动勾选（开箱即搜）；用户此后取消勾选不会被反复勾回
         const seen = new Set(get().envKeysSeen);
         const freshKeys = list.map((s) => s.key).filter((k) => !seen.has(k));
@@ -854,7 +862,7 @@ export const useAppStore = create<AppState>()(
       // v8：订阅新增 refreshDays / failStreak——两者都缺省即「纯手动 + 无失败记录」，
       //     与旧行为完全一致，因此无需改写存量数据，仅借版本号让 migrate 跑一遍。
       // 此前未声明 version 的存量数据会被视为 v0 并走 migrate 补齐。
-      version: 8,
+      version: STORE_VERSION,
       migrate: (persisted, version) => {
         const state = { ...((persisted ?? {}) as Partial<AppState>) };
         if (!Array.isArray(state.liveRecent)) state.liveRecent = [];

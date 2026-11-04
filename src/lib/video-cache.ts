@@ -38,7 +38,7 @@ export const DEFAULT_CACHE_SETTINGS: CacheSettings = {
   maxTotalBytes: 2 * 1024 * 1024 * 1024,
 };
 
-const SETTINGS_KEY = 'libretv-video-cache-settings';
+export const SETTINGS_KEY = 'libretv-video-cache-settings';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);

@@ -264,7 +264,6 @@ export function LiveSourceManager() {
                             }}
                           >
                             {row.label}
-                            {row.preset && <Tag style={{ marginInlineStart: 6 }}>部署者预置</Tag>}
                             {fromSubscription && (
                               <Tag
                                 color="gold"

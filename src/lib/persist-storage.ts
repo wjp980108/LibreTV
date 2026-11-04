@@ -1,7 +1,7 @@
 /**
  * zustand persist 用的节流 localStorage 包装（独立成模块的原因：
- * db.ts 的 importConfig 需要 flush 节流缓冲，而运行时依赖方向是 store → db，
- * db.ts 不能反向 import store，故把两者共用的存储逻辑放在这个无依赖的底层模块）。
+ * config-backup.ts 的 importConfig 需要在恢复设置前 flush 节流缓冲，
+ * 因此把共用的存储逻辑放在这个无依赖的底层模块）。
  */
 
 import type { StateStorage } from 'zustand/middleware';
@@ -40,7 +40,7 @@ if (typeof window !== 'undefined') {
 /**
  * 立即落盘缓冲中的待写状态。
  * importConfig 直接写 localStorage 前必须先调用，否则缓冲中的旧状态
- * 会在导入后 flush 覆盖刚写入的配置（竞态见 db.ts importConfig）。
+ * 会在导入后 flush 覆盖刚写入的配置。
  */
 export function flushPendingPersist(): void {
   flush();

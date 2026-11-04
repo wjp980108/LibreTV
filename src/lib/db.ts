@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { SourceConfig } from './types';
 // 仅类型引入：store.ts 运行时会引用本模块，反向只取类型不会形成运行时循环
 import type { LiveProbeEntry } from './store';
-import { PERSIST_KEY, flushPendingPersist } from './persist-storage';
+
 
 /**
  * IndexedDB 持久化（替代旧版 localStorage 数据库）：
@@ -204,65 +204,6 @@ export async function saveLiveProbeResults(entries: Record<string, LiveProbeEntr
 
 export async function clearLiveProbeResultsDb(): Promise<void> {
   await db.liveProbe.clear();
-}
-
-// —— 配置导入导出（兼容旧版 LibreTV-Settings JSON 结构的导出格式） ——
-
-export async function exportConfig(): Promise<string> {
-  // 导出前 flush：把节流缓冲中的最新设置落盘，避免导出的是 800ms 前的旧快照
-  flushPendingPersist();
-  const history = await db.history.toArray();
-  const settings = localStorage.getItem(PERSIST_KEY);
-
-  const data: Record<string, unknown> = {
-    viewingHistory: JSON.stringify(history),
-  };
-  if (settings) data[PERSIST_KEY] = settings;
-
-  return JSON.stringify({
-    name: 'LibreTV-Settings',
-    time: Date.now().toString(),
-    cfgVer: '2.0.0',
-    data,
-  });
-}
-
-export async function importConfig(content: string): Promise<void> {
-  const config = JSON.parse(content) as {
-    name?: string;
-    data?: Record<string, string>;
-  };
-  if (config.name !== 'LibreTV-Settings') throw new Error('配置文件格式不正确');
-  const data = config.data || {};
-
-  if (typeof data[PERSIST_KEY] === 'string') {
-    // 关键：先 flush 节流缓冲中的旧状态再写导入配置，否则缓冲会在
-    // 之后 flush 时用导入前的旧状态覆盖刚写入的配置（导入静默丢失）
-    flushPendingPersist();
-    localStorage.setItem(PERSIST_KEY, data[PERSIST_KEY]);
-  }
-
-  if (typeof data['viewingHistory'] === 'string') {
-    // 兼容旧版历史结构（含全集 URL 列表），只迁移定位信息
-    const legacy = JSON.parse(data['viewingHistory']) as Record<string, unknown>[];
-    for (const item of legacy.slice(0, MAX_HISTORY)) {
-      const sourceKey = String(item.sourceCode || item.sourceName || '');
-      const vodId = String(item.vod_id || '');
-      const title = String(item.title || '未知视频');
-      if (!sourceKey || !vodId) continue;
-      const totalEpisodes = Array.isArray(item.episodes) ? item.episodes.length : 0;
-      await upsertHistory({
-        sourceKey,
-        vodId,
-        title,
-        episodeIndex: typeof item.episodeIndex === 'number' ? item.episodeIndex : 0,
-        totalEpisodes,
-        playbackPosition: typeof item.playbackPosition === 'number' ? item.playbackPosition : 0,
-        duration: typeof item.duration === 'number' ? item.duration : 0,
-        timestamp: typeof item.timestamp === 'number' ? item.timestamp : Date.now(),
-      });
-    }
-  }
 }
 
 export type { SourceConfig };

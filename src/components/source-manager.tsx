@@ -57,8 +57,7 @@ import {
 import type { SourceConfig } from '@/lib/types';
 import { useToast } from './toast';
 import { formatRelativeTime, hostnameOf, validateSourceUrl } from '@/lib/utils';
-import { exportConfig, importConfig } from '@/lib/db';
-import { PERSIST_KEY } from '@/lib/persist-storage';
+import { exportConfig, importConfig, parseConfigBackup } from '@/lib/config-backup';
 import { copyToClipboard } from '@/lib/clipboard';
 import { useAuth } from './auth';
 import { api } from '@/lib/client-api';
@@ -590,7 +589,6 @@ function VodSourceRow({
                   (18+)
                 </Typography.Text>
               )}
-              {isEnv && <Tag style={{ marginInlineStart: 6 }}>部署者预置</Tag>}
               {fromSubscription && (
                 <Tag
                   color="gold"
@@ -1514,7 +1512,7 @@ function SourceSubscriptions() {
   );
 }
 
-/** 配置导入导出（导出受登录门控；导入前先解析预览再确认，避免误覆盖） */
+/** 个人备份（导出受登录门控；恢复前校验全文并展示覆盖与合并规则） */
 function ConfigIoPanel() {
   const { toast } = useToast();
   const { verified, openLogin } = useAuth();
@@ -1531,10 +1529,10 @@ function ConfigIoPanel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Meet-you-Settings_${Date.now()}.json`;
+      a.download = `Meet-you-Backup_${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast('配置已导出', 'success');
+      toast('个人备份已导出', 'success');
     } catch {
       toast('导出失败', 'error');
     }
@@ -1542,7 +1540,8 @@ function ConfigIoPanel() {
 
   const pickImport = async (file: File) => {
     try {
-      const summary = summarizeConfig(await file.text());
+      const backup = parseConfigBackup(await file.text());
+      const summary = `该备份包含 ${backup.settings.customAPIs.length} 个自定义点播源、${backup.settings.liveSubscriptions.length} 个直播源、${backup.settings.subscriptions.length} 个订阅、${backup.history.length} 条观看历史、${backup.progress.length} 条逐集进度和 ${backup.searchHistory.length} 条搜索记录`;
       setPending({ file, summary });
     } catch (err) {
       toast(err instanceof Error ? err.message : '导入失败', 'error');
@@ -1554,8 +1553,7 @@ function ConfigIoPanel() {
     try {
       await importConfig(await pending.file.text());
       setPending(null);
-      toast('配置导入成功，即将刷新页面', 'success');
-      setTimeout(() => window.location.reload(), 1500);
+      window.location.reload();
     } catch (err) {
       toast(err instanceof Error ? err.message : '导入失败', 'error');
     }
@@ -1566,16 +1564,16 @@ function ConfigIoPanel() {
       <Flex align="center" justify="space-between" gap="small" style={{ marginBottom: 12 }}>
         <Flex vertical style={{ minWidth: 0 }}>
           <Typography.Title level={5} style={{ margin: 0 }}>
-            {'配置导入导出'}
+            {'个人备份与恢复'}
           </Typography.Title>
-          <Typography.Text type="secondary" ellipsis>
-            {'导出/导入包含数据源、订阅与偏好设置的整机配置'}
+          <Typography.Text type="secondary">
+            {'备份自定义数据源、订阅、收藏、偏好设置、观看历史、逐集进度与搜索记录。包含主题、缓存和下载偏好；不包含视频缓存、下载任务、测活与画质记录、登录状态。内置源由项目自动加载。仅支持当前版本导出的备份。'}
           </Typography.Text>
         </Flex>
       </Flex>
       <Flex gap={8}>
         <Button style={{ flex: '1 1 0%' }} type="default" onClick={doExport}>
-          导出配置
+          导出备份
         </Button>
         <Upload
           style={{ flex: '1 1 0%' }}
@@ -1587,11 +1585,11 @@ function ConfigIoPanel() {
             return false;
           }}
         >
-          <Button block>导入配置</Button>
+          <Button block>导入备份</Button>
         </Upload>
       </Flex>
 
-      {/* 重操作：导入会覆盖全部配置，先确认并展示将导入的内容概要 */}
+      {/* 导入前使用与实际导入相同的校验，并明确覆盖和合并的范围。 */}
       <Modal
         centered
         width={420}
@@ -1600,53 +1598,18 @@ function ConfigIoPanel() {
         cancelButtonProps={{ autoFocus: true }}
         open={pending !== null}
         okButtonProps={{ danger: true }}
-        title="导入配置并覆盖当前数据？"
+        title="恢复个人备份？"
 
-        okText="导入并覆盖"
+        okText="确认恢复"
         onCancel={() => setPending(null)}
         onOk={confirmImport}
       >
         {pending
-          ? `${pending.summary}。导入后将立即刷新页面，当前设备上的配置与观看历史会被覆盖。`
+          ? `${pending.summary}。自定义源、订阅、收藏和偏好设置将被备份替换；观看历史、逐集进度和搜索记录与本机合并，重复项保留更新的记录（观看历史最多保留 100 条，搜索记录最多保留 10 条）。点播测活与画质记录将重置。视频缓存与下载任务保留。恢复后立即刷新页面。`
           : undefined}
       </Modal>
     </Flex>
   );
-}
-
-/** 解析配置文件概要（宽松，仅用于导入前预览） */
-function summarizeConfig(text: string): string {
-  let cfg: { name?: string; data?: Record<string, unknown> };
-  try {
-    cfg = JSON.parse(text) as { name?: string; data?: Record<string, unknown> };
-  } catch {
-    throw new Error('文件不是合法的 JSON');
-  }
-  if (cfg.name !== 'LibreTV-Settings') throw new Error('配置文件格式不正确');
-
-  const parts: string[] = [];
-  const settingsRaw = cfg.data?.[PERSIST_KEY];
-  if (typeof settingsRaw === 'string') {
-    try {
-      const state = (JSON.parse(settingsRaw) as { state?: Record<string, unknown> }).state ?? {};
-      const vod = Array.isArray(state.customAPIs) ? state.customAPIs.length : 0;
-      const live = Array.isArray(state.liveSubscriptions) ? state.liveSubscriptions.length : 0;
-      const subs = Array.isArray(state.subscriptions) ? state.subscriptions.length : 0;
-      parts.push(`${vod} 个点播源`, `${live} 个直播源`, `${subs} 个订阅`);
-    } catch {
-      /* 设置片段损坏时忽略该部分统计 */
-    }
-  }
-  const historyRaw = cfg.data?.['viewingHistory'];
-  if (typeof historyRaw === 'string') {
-    try {
-      const h = JSON.parse(historyRaw);
-      if (Array.isArray(h)) parts.push(`${h.length} 条观看历史`);
-    } catch {
-      /* 忽略 */
-    }
-  }
-  return parts.length > 0 ? `该文件包含 ${parts.join('、')}` : '该文件未包含可导入的数据';
 }
 
 function SourceForm({

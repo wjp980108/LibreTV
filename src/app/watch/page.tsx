@@ -1,20 +1,19 @@
 'use client';
 
-import { ArrowDownOutlined, LeftOutlined, HomeOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined, LeftOutlined, RightOutlined, PlaySquareOutlined,
+  PlayCircleFilled, SwapOutlined, DownloadOutlined, ScissorOutlined, QuestionCircleOutlined,
+} from '@ant-design/icons';
 import {
   Button,
-  Checkbox,
   Spin,
   Empty,
-  Space,
   Typography,
   Flex,
-  Row,
-  Col,
   Layout,
-  Card,
-  Grid,
   Badge,
+  Popover,
+  Switch,
 } from 'antd';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +41,8 @@ import { enqueueDownload } from '@/components/download-manager';
 import { useAuth } from '@/components/auth';
 import { resolveSource, useAppStore } from '@/lib/store';
 import { qualityKey } from '@/lib/quality';
+import { ThemeToggle } from '@/components/theme';
+import styles from './watch.module.css';
 import {
   clearProgress,
   progressKeyOf,
@@ -65,8 +66,6 @@ export default function WatchPage() {
 }
 
 function WatchContent() {
-  const screens = Grid.useBreakpoint();
-
   const searchParams = useSearchParams();
   const router = useRouter();
   const store = useAppStore();
@@ -318,87 +317,35 @@ function WatchContent() {
   }
 
   return (
-    <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
-      <Layout.Header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          height: 64,
-          paddingInline: 16,
-          background: 'color-mix(in srgb, var(--ant-color-bg-container) 96%, transparent)',
-          borderBottom: '1px solid var(--ant-color-border-secondary)',
-          lineHeight: 'normal',
-        }}
-      >
-        <Flex
-          style={{ maxWidth: 1280, marginInline: 'auto', height: '100%' }}
-          align="center"
-          gap={12}
-        >
+    <Layout className={styles.page}>
+      <Layout.Header className={styles.header}>
+        <nav className={styles.headerInner} aria-label="播放页导航">
           <BackButton />
           <HomeButton />
-          <Flex vertical style={{ minWidth: 0 }}>
-            <Typography.Title
-              level={1}
-              ellipsis
-              style={{
-                margin: 0,
-                fontSize: 'var(--ant-font-size)',
-                fontWeight: 500,
-
-                minWidth: 0,
-              }}
-            >
-              {videoTitle}
-            </Typography.Title>
-            <Typography.Paragraph
-              type="secondary"
-              style={{ margin: 0, fontSize: 'var(--ant-font-size-sm)' }}
-            >
-              {source.name}
-              {episodes.length > 0 && ` · 第 ${currentIndex + 1}/${episodes.length} 集`}
-            </Typography.Paragraph>
-          </Flex>
-          <Flex style={{ marginInlineStart: 'auto' }} align="center" gap={8}>
-            <Button
-              type="default"
-              size="small"
-
-              onClick={() => {
-                if (!currentUrl) return;
-                enqueueDownload({
-                  url: currentUrl,
-                  // 多集才带集数后缀；单集影片（含电影）文件名就是纯标题
-                  title: `${videoTitle}${episodes.length > 1 ? ` 第${currentIndex + 1}集` : ''}`,
-                  format: 'MP4',
-                });
-                // 「已加入下载队列」由 DownloadManager 在真正入队后提示：
-                // 这里先提示的话，用户随后取消保存位置会出现「已加入→已取消」的矛盾
-              }}
-            >
-              下载本集
-            </Button>
-            <Button type="default" size="small" onClick={() => setSwitchOpen(true)}>
-              切换资源
-            </Button>
-          </Flex>
-        </Flex>
+          <span className={styles.headerDivider} />
+          <span className={styles.headerTitle} title={videoTitle}>{videoTitle}</span>
+          <div className={styles.headerTools}>
+            <Popover title="播放快捷键" trigger="click" placement="bottomRight" content={
+              <div className={styles.shortcuts}>
+                <span>播放 / 暂停</span><kbd>空格</kbd>
+                <span>快退 / 快进 5 秒</span><kbd>← / →</kbd>
+                <span>调整音量</span><kbd>↑ / ↓</kbd>
+                <span>全屏</span><kbd>F</kbd>
+                <span>上一集 / 下一集</span><kbd>Alt + ← / →</kbd>
+              </div>
+            }>
+              <Button type="text" icon={<QuestionCircleOutlined />} aria-label="查看播放快捷键" />
+            </Popover>
+            <ThemeToggle />
+          </div>
+        </nav>
       </Layout.Header>
 
-      <Layout.Content style={{ maxWidth: 1280, width: '100%', marginInline: 'auto', padding: 16 }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} lg={17} xl={18} style={{ minWidth: 0 }}>
-            <Flex vertical>
-              <Flex
-                ref={playerFrameRef}
-                style={{
-                  aspectRatio: '16/9',
-                  backgroundColor: '#000',
-                  borderRadius: 'var(--ant-border-radius-lg)',
-                  overflow: 'hidden',
-                }}
-              >
+      <Layout.Content className={styles.content}>
+        <div className={styles.watchLayout}>
+          <section className={styles.playerColumn} aria-label="影片播放">
+            <div className={styles.playerCard}>
+              <div ref={playerFrameRef} className={styles.playerFrame}>
                 {currentUrl ? (
                   <PlayerShell
                     url={currentUrl}
@@ -443,77 +390,62 @@ function WatchContent() {
                     }}
                   />
                 ) : (
-                  <Flex style={{ width: '100%', height: '100%' }} align="center" justify="center">
+                  <Flex vertical gap={16} className={styles.playerEmpty} align="center" justify="center">
                     {detailQuery.isLoading ? (
                       <Spin size="large" />
                     ) : (
-                      <Typography.Paragraph
-                        type="secondary"
-                        style={{
-                          margin: 0,
-
-                          fontSize: 'var(--ant-font-size)',
-                        }}
-                      >
-                        {detailQuery.isError ? '视频加载失败，请尝试其他资源' : '无可用播放地址'}
-                      </Typography.Paragraph>
+                      <>
+                        <span>{detailQuery.isError ? '视频加载失败，请尝试其他来源' : '暂无可用播放地址'}</span>
+                        <Button icon={<SwapOutlined />} onClick={() => setSwitchOpen(true)}>切换来源</Button>
+                      </>
                     )}
                   </Flex>
                 )}
-              </Flex>
+              </div>
 
-              {/* 操作栏 */}
-              <Flex style={{ marginTop: 12 }} wrap align="center" gap={8}>
-                <Button
-                  type="default"
-                  size="small"
-
-                  disabled={currentIndex <= 0}
-                  onClick={() => goEpisode(currentIndex - 1)}
-                >
-                  上一集
-                </Button>
-                <Button
-                  type="default"
-                  size="small"
-
-                  disabled={episodes.length === 0 || currentIndex >= episodes.length - 1}
-                  onClick={() => goEpisode(currentIndex + 1)}
-                >
-                  下一集
-                </Button>
-                <Button
-                  type={skipPanelOpen ? 'primary' : 'default'}
-                  size="small"
-
-                  aria-expanded={skipPanelOpen}
-                  aria-haspopup="dialog"
-                  onClick={() => setSkipPanelOpen((v) => !v)}
-                  title={
-                    markedCount > 0
+              <div className={styles.playerDetails}>
+                <div className={styles.filmHeading}>
+                  <div className={styles.filmInfo}>
+                    <Typography.Title level={1} className={styles.videoTitle}>{videoTitle}</Typography.Title>
+                    <div className={styles.videoMeta}>
+                      <span className={styles.nowPlaying}><PlayCircleFilled aria-hidden />
+                        {episodes.length > 0 ? `第 ${currentIndex + 1} 集` : '当前视频'}
+                      </span>
+                      <span>{source.name}</span>
+                      {episodes.length > 0 && <span>共 {episodes.length} 集</span>}
+                    </div>
+                  </div>
+                  <div className={styles.episodeNavigation}>
+                    <Button icon={<LeftOutlined />} disabled={currentIndex <= 0}
+                      onClick={() => goEpisode(currentIndex - 1)}>上一集</Button>
+                    <Button type="primary" icon={<RightOutlined />} iconPlacement="end"
+                      disabled={episodes.length === 0 || currentIndex >= episodes.length - 1}
+                      onClick={() => goEpisode(currentIndex + 1)}>下一集</Button>
+                  </div>
+                </div>
+                <div className={styles.toolbar}>
+                  <Button type="text" icon={<SwapOutlined />} onClick={() => setSwitchOpen(true)}>切换来源</Button>
+                  <Button type={skipPanelOpen ? 'primary' : 'text'} icon={<ScissorOutlined />}
+                    aria-expanded={skipPanelOpen} aria-haspopup="dialog"
+                    onClick={() => setSkipPanelOpen((v) => !v)}
+                    title={markedCount > 0
                       ? `本剧已标记 ${markedCount} 段${skipMark?.enabled === false ? '（本剧跳过已关闭）' : ''}`
-                      : '标记片头 / 中段 / 片尾，供本剧各集自动跳过'
-                  }
-                >
-                  跳过标记{markedCount > 0 ? ` (${markedCount})` : ''}
-                  {markedCount > 0 && skipMark?.enabled === false && (
-                    <Badge color="var(--ant-color-text-tertiary)" aria-label="本剧跳过已关闭" />
-                  )}
-                </Button>
-                <Checkbox
-                  style={{
-                    fontSize: 'var(--ant-font-size-sm)',
-                    color: 'var(--ant-color-text-secondary)',
-                    marginInlineStart: 'auto',
-                    cursor: 'pointer',
-                  }}
-                  checked={store.autoplayNext}
-                  onChange={(e) => store.updateSettings({ autoplayNext: e.target.checked })}
-                >
-                  自动连播
-                </Checkbox>
-              </Flex>
-
+                      : '标记片头 / 中段 / 片尾，供本剧各集自动跳过'}>
+                    跳过标记{markedCount > 0 ? ` (${markedCount})` : ''}
+                    {markedCount > 0 && skipMark?.enabled === false && (
+                      <Badge color="var(--ant-color-text-tertiary)" aria-label="本剧跳过已关闭" />
+                    )}
+                  </Button>
+                  <Button type="text" icon={<DownloadOutlined />} disabled={!currentUrl} onClick={() => {
+                    if (!currentUrl) return;
+                    enqueueDownload({
+                      url: currentUrl,
+                      title: `${videoTitle}${episodes.length > 1 ? ` 第${currentIndex + 1}集` : ''}`,
+                      format: 'MP4',
+                    });
+                  }}>下载本集</Button>
+                </div>
+              </div>
               <SkipMarkPanel
                 open={skipPanelOpen}
                 onClose={() => setSkipPanelOpen(false)}
@@ -533,88 +465,53 @@ function WatchContent() {
                   };
                 }}
               />
-            </Flex>
-          </Col>
+            </div>
+          </section>
 
-          {/* 剧集侧栏 */}
-          <Col xs={24} lg={7} xl={6} style={{ minWidth: 0 }}>
-            <Card size="small">
-              <Flex style={{ marginBottom: 10 }} align="center" justify="space-between" gap={8}>
-                <Typography.Title
-                  level={2}
-                  style={{ margin: 0, fontSize: 'var(--ant-font-size)', fontWeight: 600 }}
-                >
-                  剧集列表{episodes.length > 0 && `（${episodes.length}）`}
-                </Typography.Title>
-                {/* 排列开关紧贴它所作用的列表：放在这里才看得出它管的是这一栏的顺序 */}
+          <aside className={styles.episodePanel} aria-label="剧集选择">
+            <div className={styles.episodePanelHeader}>
+              <div className={styles.episodeHeading}>
+                <Typography.Title level={2}>选集</Typography.Title>
+                <span>{episodes.length > 0 ? `${episodes.length} 集` : '剧集列表'}</span>
                 {episodes.length > 1 && (
-                  <Button
-                    style={{ flexShrink: 0 }}
-                    type="default"
-                    size="small"
-
+                  <Button type="text" size="small" icon={<ArrowDownOutlined style={reversed ? { transform: 'rotate(180deg)' } : undefined} />}
                     onClick={() => setReversed((v) => !v)}
-                    aria-label={reversed ? '切换为正序排列' : '切换为倒序排列'}
-                    title="调整剧集列表的排列顺序"
-                  >
-                    <ArrowDownOutlined
-                      style={{ fontSize: 14, ...(reversed ? { transform: 'rotate(180deg)' } : {}) }}
-                      aria-hidden
-                    />
-                    {reversed ? '正序排列' : '倒序排列'}
+                    aria-label={reversed ? '切换为正序排列' : '切换为倒序排列'}>
+                    {reversed ? '正序' : '倒序'}
                   </Button>
                 )}
-              </Flex>
+              </div>
+              <div className={styles.episodeStatus}>
+                <span>{episodes.length > 0 ? `当前播放 · 第 ${currentIndex + 1} 集` : '选择剧集开始观看'}</span>
+                {episodes.length > 0 && <span>{currentIndex + 1} / {episodes.length}</span>}
+              </div>
+            </div>
+            <div className={styles.episodeScroll} data-episode-list>
               {episodes.length === 0 ? (
                 detailQuery.isLoading ? (
-                  <Spin description={undefined}>
-                    <Flex style={{ minHeight: 112 }} />
-                  </Spin>
+                  <Flex style={{ minHeight: 160 }} align="center" justify="center"><Spin /></Flex>
                 ) : (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description={
-                      <Space orientation="vertical">
-                        <Typography.Text>
-                          {detailQuery.isError ? '获取剧集失败' : '暂无剧集信息'}
-                        </Typography.Text>
-                      </Space>
-                    }
-                  ></Empty>
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={detailQuery.isError ? '获取剧集失败' : '暂无剧集信息'} />
                 )
               ) : (
-                <Row
-                  style={{ maxHeight: '65vh', overflowY: 'auto', paddingInlineEnd: 4 }}
-                  gutter={[6, 6]}
-                >
+                <div className={styles.episodeGrid}>
                   {orderedEpisodes.map((realIndex) => (
-                    <Col key={realIndex} xs={{ flex: '0 0 20%' }} lg={{ flex: '0 0 25%' }}>
-                      <EpisodeButton
-                        index={realIndex}
-                        active={realIndex === currentIndex}
-                        onClick={() => goEpisode(realIndex)}
-                      />
-                    </Col>
+                    <EpisodeButton key={realIndex} index={realIndex} active={realIndex === currentIndex}
+                      onClick={() => goEpisode(realIndex)} />
                   ))}
-                </Row>
+                </div>
               )}
-              <Typography.Paragraph
-                type="secondary"
-                style={{
-                  margin: 0,
-                  display: 'none',
-                  fontSize: '10px',
-
-                  marginTop: 12,
-                  lineHeight: 1.625,
-                  ...(screens.md ? { display: 'block' } : {}),
-                }}
-              >
-                快捷键：空格 播放/暂停 · ←/→ 快退/快进 5s · ↑/↓ 音量 · F 全屏 · Alt+←/→ 切换集数
-              </Typography.Paragraph>
-            </Card>
-          </Col>
-        </Row>
+            </div>
+            <div className={styles.episodePanelFooter}>
+              <div>
+                <span>自动连播</span>
+                <p>本集结束后，接着播放下一集</p>
+              </div>
+              <Switch checked={store.autoplayNext} aria-label="自动连播"
+                onChange={(checked) => store.updateSettings({ autoplayNext: checked })} />
+            </div>
+          </aside>
+        </div>
       </Layout.Content>
 
       {switchOpen && (
@@ -643,19 +540,26 @@ function EpisodeButton({
   const ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: 'nearest' });
-  }, [active]);
+    const button = ref.current;
+    const list = button?.closest<HTMLElement>('[data-episode-list]');
+    if (!active || !button || !list) return;
+    // 只滚动选集区域，避免手机切集时把整页和播放器推离视口。
+    const box = button.getBoundingClientRect();
+    const viewport = list.getBoundingClientRect();
+    if (box.top < viewport.top) list.scrollTop += box.top - viewport.top - 8;
+    else if (box.bottom > viewport.bottom) list.scrollTop += box.bottom - viewport.bottom + 8;
+  });
 
   return (
     <Button
       type={active ? 'primary' : 'default'}
-      size="small"
+      className={styles.episodeButton}
       ref={ref}
-      block
-
+      aria-label={`第 ${index + 1} 集${active ? '，当前播放' : ''}`}
+      aria-current={active ? 'true' : undefined}
       onClick={onClick}
     >
-      {index + 1}
+      {active && <PlayCircleFilled aria-hidden />}{index + 1}
     </Button>
   );
 }
@@ -682,15 +586,12 @@ function HomeButton() {
   return (
     <Link
       href="/"
-      style={{
-        padding: 8,
-        borderRadius: 'var(--ant-border-radius)',
-        color: 'var(--ant-color-text-secondary)',
-      }}
+      className={styles.brand}
       aria-label="回首页"
       title="回首页"
     >
-      <HomeOutlined style={{ fontSize: 20 }} aria-hidden />
+      <span className={styles.brandIcon}><PlaySquareOutlined aria-hidden /></span>
+      <span className={styles.brandName}>Meet you</span>
     </Link>
   );
 }

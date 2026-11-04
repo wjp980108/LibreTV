@@ -1,0 +1,97 @@
+.page { --watch-max-width: min(1480px, max(960px, calc((100dvh - 300px) * 1.777778 + 328px))); min-height: 100dvh; background: var(--ant-color-bg-layout); }
+.header:global(.ant-layout-header) {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 72px;
+  padding-inline: 32px;
+  line-height: normal;
+  background: var(--ant-color-bg-container);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+.headerInner { display: flex; align-items: center; gap: 18px; height: 100%; max-width: var(--watch-max-width); margin-inline: auto; }
+.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: var(--ant-color-text); font-size: 19px; font-weight: 600; letter-spacing: -0.6px; }
+.brand:hover { color: var(--ant-color-primary); }
+.brandIcon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--ant-color-primary); color: #fff; font-size: 19px; }
+.headerDivider { width: 1px; height: 20px; background: var(--ant-color-border-secondary); }
+.headerTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ant-color-text-secondary); font-size: 13px; }
+.headerTools { display: flex; align-items: center; margin-inline-start: auto; gap: 4px; flex-shrink: 0; }
+.shortcuts { display: grid; grid-template-columns: auto auto; gap: 12px 28px; padding-block: 8px; font-size: 12px; }
+.shortcuts kbd { justify-self: end; padding: 1px 6px; border: 1px solid var(--ant-color-border-secondary); border-radius: 4px; background: var(--ant-color-fill-quaternary); color: var(--ant-color-text-secondary); }
+.content { width: 100%; padding: 28px 32px; }
+.watchLayout { display: grid; grid-template-columns: minmax(0, 1fr) 304px; gap: 24px; max-width: var(--watch-max-width); margin-inline: auto; align-items: start; container-type: inline-size; }
+.playerColumn { min-width: 0; }
+.playerCard { overflow: hidden; border: 1px solid var(--ant-color-border-secondary); border-radius: 16px; background: var(--ant-color-bg-container); }
+.playerFrame { display: flex; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #080a0e; }
+.playerEmpty { width: 100%; height: 100%; color: #b8bfcc; font-size: 14px; text-align: center; padding: 20px; }
+.playerDetails { padding: 24px 24px 14px; }
+.filmHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.filmInfo { min-width: 0; }
+.videoTitle:global(.ant-typography) { margin: 0 0 10px; font-size: 24px; line-height: 1.4; overflow-wrap: anywhere; }
+.videoMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; color: var(--ant-color-text-tertiary); font-size: 12px; }
+.nowPlaying { display: inline-flex; align-items: center; gap: 6px; color: var(--ant-color-primary); }
+.episodeNavigation { display: flex; gap: 8px; flex-shrink: 0; }
+.episodeNavigation :global(.ant-btn) { height: 38px; padding-inline: 16px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--ant-color-border-secondary); }
+.toolbar :global(.ant-btn-text) { color: var(--ant-color-text-secondary); }
+.episodePanel { display: flex; flex-direction: column; min-width: 0; height: calc((100cqw - 328px) * 0.5625 + 170px); border: 1px solid var(--ant-color-border-secondary); border-radius: 16px; background: var(--ant-color-bg-container); overflow: hidden; }
+.episodePanelHeader { padding: 22px 20px 18px; flex-shrink: 0; }
+.episodeHeading { display: flex; align-items: center; gap: 8px; }
+.episodeHeading h2:global(.ant-typography) { margin: 0; font-size: 18px; }
+.episodeHeading > span { color: var(--ant-color-text-tertiary); font-size: 12px; }
+.episodeHeading > button { margin-inline-start: auto; color: var(--ant-color-text-secondary); }
+.episodeStatus { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; color: var(--ant-color-text-tertiary); font-size: 12px; }
+.episodeStatus > :first-child { color: var(--ant-color-primary); }
+.episodeScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; }
+.episodeGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.episodeButton:global(.ant-btn) { width: 100%; height: 44px; min-width: 0; padding: 0 4px; border-radius: 8px; box-shadow: none; font-variant-numeric: tabular-nums; }
+.episodeButton:global(.ant-btn-default) { border-color: transparent; background: var(--ant-color-fill-quaternary); }
+.episodeButton:global(.ant-btn-default):hover { border-color: var(--ant-color-primary-border); background: var(--ant-color-primary-bg); }
+.episodeButton:global(.ant-btn-primary) { font-weight: 600; }
+.episodeButton :global(.anticon) { font-size: 12px; }
+.episodePanelFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding: 18px 20px; border-top: 1px solid var(--ant-color-border-secondary); flex-shrink: 0; }
+.episodePanelFooter span { font-size: 13px; }
+.episodePanelFooter p { margin: 5px 0 0; color: var(--ant-color-text-tertiary); font-size: 11px; }
+
+@media (max-width: 1199px) and (min-width: 1024px) {
+  .content { padding-inline: 24px; }
+  .watchLayout { grid-template-columns: minmax(0, 1fr) 272px; gap: 20px; }
+  .episodePanel { height: calc((100cqw - 292px) * 0.5625 + 190px); }
+  .playerDetails { padding-inline: 20px; }
+  .filmHeading { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .toolbar { margin-top: 16px; }
+}
+
+@media (max-width: 1023px) {
+  .page { --watch-max-width: 900px; }
+  .header:global(.ant-layout-header) { height: 64px; padding-inline: 20px; }
+  .content { padding: 20px; }
+  .watchLayout { grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 900px; }
+  .episodePanel { height: auto; }
+  .episodeScroll { flex: auto; max-height: 360px; }
+  .episodeGrid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .episodePanelFooter { padding-block: 16px; }
+}
+
+@media (max-width: 600px) {
+  .header:global(.ant-layout-header) { padding-inline: 16px; }
+  .headerInner { gap: 12px; }
+  .brand { gap: 8px; }
+  .brandName { display: none; }
+  .headerDivider { display: none; }
+  .content { padding: 0 0 24px; }
+  .watchLayout { gap: 16px; }
+  .playerCard { border: 0; border-radius: 0; }
+  .playerDetails { padding: 20px 16px 12px; }
+  .filmHeading { flex-direction: column; align-items: stretch; gap: 20px; }
+  .videoTitle:global(.ant-typography) { font-size: 22px; }
+  .episodeNavigation { width: 100%; }
+  .episodeNavigation :global(.ant-btn) { flex: 1; height: 40px; }
+  .toolbar { justify-content: space-between; margin-top: 18px; gap: 4px; }
+  .toolbar :global(.ant-btn) { padding-inline: 8px; font-size: 12px; }
+  .episodePanel { margin-inline: 16px; border-radius: 12px; }
+  .episodePanelHeader { padding: 18px 16px; }
+  .episodeGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .episodeScroll { padding-inline: 16px; max-height: 320px; }
+  .episodePanelFooter { padding-inline: 16px; }
+}

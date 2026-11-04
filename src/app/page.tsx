@@ -18,9 +18,10 @@ import {
   Form,
   Result,
   Flex,
-  Alert,
+  Spin,
 } from 'antd';
 import cinemaStyles from '@/components/cinema.module.css';
+import searchStyles from '@/components/search-results.module.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Header, CINEMA_SIDEBAR_WIDTH } from '@/components/header';
@@ -36,7 +37,7 @@ import {
 import { api } from '@/lib/client-api';
 import type { SearchResultItem, SourceSearchOutcome } from '@/lib/types';
 import { useSearchHistory } from '@/components/search-history';
-import { formatDisableTtl, validateSourceUrl } from '@/lib/utils';
+import { validateSourceUrl } from '@/lib/utils';
 import { useToast } from '@/components/toast';
 
 import { SiteFooter } from '@/components/site-footer';
@@ -131,14 +132,8 @@ function HomeContent() {
         // 逐源结算即更新：结果边搜边渲染，同时滚动健康度
         onSource: (outcome) => {
           setStreamedOutcomes((prev) => [...prev, outcome]);
-          for (const ev of useAppStore.getState().recordSourceHealth([outcome])) {
-            toast(
-              ev.permanent
-                ? `「${sourceName(ev.key)}」多次失败，已停止参与搜索，可在设置中恢复`
-                : `「${sourceName(ev.key)}」连续超时/失败，已停用 ${formatDisableTtl(ev.ttlMs ?? 0)}`,
-              'warning',
-            );
-          }
+          // 搜索状态统一在结果区汇总，避免大量失败源逐个弹出提示。
+          useAppStore.getState().recordSourceHealth([outcome]);
         },
       });
     },
@@ -234,96 +229,74 @@ function HomeContent() {
           {/* 搜索结果 */}
           {urlQuery && (
             <Flex vertical component="section" aria-label="搜索结果" style={{ marginBottom: 40 }}>
-              <Flex style={{ marginBottom: 12 }} align="center" justify="space-between">
-                <Typography.Title
-                  type="secondary"
-                  level={2}
-                  style={{ margin: 0, fontSize: 'var(--ant-font-size)' }}
-                >
-                  “<Typography.Text style={{}}>{urlQuery}</Typography.Text>” 的搜索结果
-                  {isSearching ? (
-                    <Typography.Text type="secondary" style={{}}>
-                      （已就绪 {streamedOutcomes.length}/{selectedSources.length} 个源…）
-                    </Typography.Text>
-                  ) : (
-                    searchQuery.data && (
-                      <Typography.Text type="secondary" style={{}}>
-                        （{groups.length} 部影片 · {list.length} 条结果
-                        {failures.length > 0 && `，${failures.length} 个源失败`}）
-                      </Typography.Text>
-                    )
-                  )}
-                </Typography.Title>
-              </Flex>
+              <div className={searchStyles.heading}>
+                <div>
+                  <span className={searchStyles.eyebrow}>搜索结果</span>
+                  <Typography.Title level={1} className={searchStyles.queryTitle}>
+                    {urlQuery}
+                  </Typography.Title>
+                  <Typography.Text type="secondary">
+                    {isSearching
+                      ? '正在查找影片，已找到的结果可以先选来源'
+                      : `找到 ${groups.length} 部影片 · ${list.length} 个片源结果`}
+                  </Typography.Text>
+                </div>
+                {isSearching && (
+                  <Space role="status" className={searchStyles.searchProgress}>
+                    <Spin size="small" />
+                    <Typography.Text type="secondary">已搜索 {streamedOutcomes.length} 个源</Typography.Text>
+                  </Space>
+                )}
+              </div>
 
-              {failures.length > 0 && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  description={
-                    <Flex wrap gap={4}>
-                      <Typography.Text type="secondary" style={{}}>
-                        {isSearching ? '以下源暂时无响应：' : '部分点播源请求失败：'}
-                      </Typography.Text>
-                      {failures.map((f) => (
-                        <Typography.Text
-                          key={f.sourceKey}
-                          style={{
-                            ...(f.timedOut
-                              ? { color: 'var(--ant-color-warning)' }
-                              : { color: 'var(--ant-color-text-tertiary)' }),
-                          }}
-                        >
-                          {f.timedOut ? '⏱' : '✗'} {sourceName(f.sourceKey)}
-                          {f.timedOut ? ' 超时' : ''}
-                        </Typography.Text>
-                      ))}
-                    </Flex>
-                  }
-                  style={{ marginBottom: 12 }}
-                />
+              {(failures.length > 0 || disabledSources.length > 0 || offSubscriptionSources.length > 0) && (
+                <details className={searchStyles.sourceStatus}>
+                  <summary>
+                    <span className={searchStyles.statusDot} aria-hidden />
+                    <span className={searchStyles.statusSummary}>
+                      {[
+                        failures.length > 0 && `${failures.length} 个源请求失败`,
+                        disabledSources.length > 0 && `${disabledSources.length} 个源已暂停`,
+                        offSubscriptionSources.length > 0 && `${offSubscriptionSources.length} 个源随订阅停用`,
+                      ].filter(Boolean).join(' · ')}
+                      {list.length > 0 && <span className={searchStyles.statusHint}>不影响已找到的片源</span>}
+                    </span>
+                    <span className={searchStyles.statusToggle}>查看详情</span>
+                  </summary>
+                  <div className={searchStyles.statusDetails}>
+                    {failures.length > 0 && (
+                      <div>
+                        <strong>本次请求失败</strong>
+                        <p>{failures.map((f) => `${sourceName(f.sourceKey)}${f.timedOut ? '（超时）' : ''}`).join('、')}</p>
+                      </div>
+                    )}
+                    {disabledSources.length > 0 && (
+                      <div>
+                        <strong>连续失败，已暂停搜索</strong>
+                        <p>{disabledSources.map((key) => sourceName(key)).join('、')}</p>
+                        <p>临时暂停的源到期自动恢复，长期暂停的可在右上角「设置」中恢复。</p>
+                      </div>
+                    )}
+                    {offSubscriptionSources.length > 0 && (
+                      <div>
+                        <strong>所属订阅已停用</strong>
+                        <p>{offSubscriptionSources.map((key) => sourceName(key)).join('、')}</p>
+                        <p>可在「设置 → 数据源订阅」中重新启用。</p>
+                      </div>
+                    )}
+                  </div>
+                </details>
               )}
-
-              {disabledSources.length > 0 && (
-                <Alert
-                  type="info"
-                  showIcon
-                  description={
-                    <Flex wrap gap={4}>
-                      {disabledSources.length}{' '}
-                      个源因连续超时/失败已暂停参与搜索（临时停用的到期自动恢复，
-                      长期停用的需在设置中手动恢复）：
-                      {disabledSources.map((key) => sourceName(key)).join('、')}
-                    </Flex>
-                  }
-                  style={{ marginBottom: 12 }}
-                />
-              )}
-
-              {offSubscriptionSources.length > 0 && (
-                <Alert
-                  type="info"
-                  showIcon
-                  description={
-                    <Flex wrap gap={4}>
-                      {offSubscriptionSources.length}个源所属的订阅已停用，未参与本次搜索（在设置 →
-                      数据源订阅中可重新启用）：
-                      {offSubscriptionSources.map((key) => sourceName(key)).join('、')}
-                    </Flex>
-                  }
-                  style={{ marginBottom: 12 }}
-                />
-              )}
-
               {selectedSources.length === 0 ? (
                 <NoSourceGuide hasSources={customAPIs.length > 0 || envSources.length > 0} />
               ) : list.length > 0 ? (
                 <>
-                  <Row gutter={[12, 12]} align="top">
+                  <Row gutter={[20, 20]} align="top">
                     {visibleGroups.map((group) => (
-                      <Col key={group.key} xs={24} sm={12} lg={8}>
+                      <Col key={group.key} xs={24} xl={groups.length === 1 ? 24 : 12}>
                         <AggregatedCard
                           group={group}
+                          featured={groups.length === 1}
                           sources={selectedSources}
                           onOpen={(item) => setDetailItem(item)}
                         />
@@ -384,9 +357,9 @@ function HomeContent() {
 
 function ResultsSkeleton() {
   return (
-    <Row gutter={[12, 12]}>
-      {Array.from({ length: 6 }, (_, i) => (
-        <Col key={i} xs={24} sm={12} lg={8}>
+    <Row gutter={[20, 20]}>
+      {Array.from({ length: 4 }, (_, i) => (
+        <Col key={i} xs={24} xl={12}>
           <Card size="small">
             <Skeleton active avatar={{ shape: 'square', size: 80 }} paragraph={{ rows: 2 }} />
           </Card>

@@ -1,9 +1,9 @@
 'use client';
 
 import { VideoCameraOutlined, PlayCircleOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
-import { Card, Tag, Flex, Collapse, Typography, Grid } from 'antd';
+import { Button, Card, Tag, Flex, Typography } from 'antd';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
@@ -15,6 +15,7 @@ import { useQualityProbe } from './use-quality-probe';
 import { useInView } from './use-in-view';
 import { PosterArtwork } from './poster-artwork';
 import styles from './cinema.module.css';
+import searchStyles from './search-results.module.css';
 
 // —— 跨源同名聚合 ——
 
@@ -83,24 +84,27 @@ export function aggregateResults(list: SearchResultItem[]): AggregatedGroup[] {
 
 /**
  * 聚合影片卡片：
- * - 单源：点击直接打开该源详情（与旧体验一致）；
- * - 多源：显示「N 个来源」徽章，点击展开各源列表，选择具体源后打开详情。
+ * - 通过明确的选集按钮打开详情，多源结果可单独选择来源；
+ * - 单部结果横向展示影片与来源，多部结果按需展开来源列表。
  */
 export function AggregatedCard({
   group,
   onOpen,
   sources,
+  featured = false,
 }: {
   group: AggregatedGroup;
   onOpen: (item: SearchResultItem) => void;
   /** 完整源配置：探测画质需要 source.url / source.detail，搜索结果里只带 sourceUrl */
   sources?: SourceConfig[];
+  featured?: boolean;
 }) {
-  const screens = Grid.useBreakpoint();
+  const sourcesId = useId();
   const imageProxyMode = useAppStore((s) => s.imageProxyMode);
   const customImageProxy = useAppStore((s) => s.customImageProxy);
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showAllSources, setShowAllSources] = useState(false);
   const showImg = !!group.pic && !imgFailed;
 
   const multi = group.items.length > 1;
@@ -108,6 +112,12 @@ export function AggregatedCard({
 
   const { qualities, probing, progress, prime, probe, probeQueued, retry } =
     useQualityProbe(sources);
+
+  // 单部结果直接展示来源；后续流式结果到达时也沿用全局限流队列。
+  useEffect(() => {
+    if (featured && multi) probeQueued(group.items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featured, multi, group.key]);
 
   // 收起态就要有结论：先读缓存（展开时才真正探测）。
   // 依赖 group.key 而不是 items 数组——搜索页每次重渲染都会重建分组对象，
@@ -151,180 +161,121 @@ export function AggregatedCard({
       ? remarksList[0]
       : undefined;
 
-  const summary = (
-    <Flex gap={12} style={{ minWidth: 0 }}>
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          width: screens.sm ? 108 : 84,
-          aspectRatio: '2/3',
-          flexShrink: 0,
-          overflow: 'hidden',
-          borderRadius: 6,
-          background: 'var(--ant-color-fill-tertiary)',
-        }}
-      >
-        {showImg ? (
-          <SmartImage
-            url={group.pic}
-            mode={imageProxyMode}
-            customProxy={customImageProxy}
-            alt={group.name}
-            style={{ width: '100%', height: '100%' }}
-            onExhausted={() => setImgFailed(true)}
-          />
-        ) : (
-          <VideoCameraOutlined
-            style={{ fontSize: 32, color: 'var(--ant-color-text-quaternary)' }}
-            aria-hidden
-          />
-        )}
-      </Flex>
-      <Flex vertical gap={8} style={{ minWidth: 0, flex: 1 }}>
-        <Typography.Text strong ellipsis={{ tooltip: group.name }}>
-          {group.name}
-        </Typography.Text>
-        <Flex wrap gap={4}>
-          {group.typeName && <Tag color="gold">{group.typeName}</Tag>}
-          {group.year && <Tag color="purple">{group.year}</Tag>}
-          {adult && <Tag color="magenta">18+</Tag>}
-          {singleKey && (
-            <QualityBadge
-              entry={qualities[singleKey]}
-              loading={probing[singleKey]}
-              onRetry={singleItem ? () => retry([singleItem]) : undefined}
-            />
-          )}
-        </Flex>
-        <Typography.Paragraph
-          type="secondary"
-          ellipsis={{ rows: 2 }}
-          style={{ margin: 0, fontSize: 12 }}
-        >
-          {group.remarks || '暂无介绍'}
-        </Typography.Paragraph>
-        <Flex wrap align="center" gap={4} style={{ marginTop: 'auto' }}>
-          <Tag>{multi ? `${group.items.length} 个来源` : group.items[0].sourceName}</Tag>
-          {multi && progress.best && <Tag color="gold">最高 {progress.best}</Tag>}
-        </Flex>
-      </Flex>
-    </Flex>
-  );
+  const sourcesVisible = featured || expanded;
+  const displayedItems = showAllSources ? sortedItems : sortedItems.slice(0, 6);
+  const primaryItem = firstBest ?? sortedItems[0];
+  const area = group.items.find((item) => item.area)?.area;
 
   return (
     <Card
       ref={inViewRef}
-      size="small"
-      hoverable={!multi}
-      styles={{ body: { padding: multi ? 0 : 12 } }}
-      role={!multi ? 'button' : undefined}
-      tabIndex={!multi ? 0 : undefined}
-      onClick={!multi ? () => onOpen(group.items[0]) : undefined}
-      onKeyDown={
-        !multi
-          ? (event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onOpen(group.items[0]);
-              }
-            }
-          : undefined
-      }
+      className={`${searchStyles.resultCard} ${featured ? searchStyles.featuredCard : ''}`}
+      styles={{ body: { padding: 0 } }}
     >
-      {multi ? (
-        <Collapse
-          ghost
-          size="small"
-          expandIconPlacement="end"
-          activeKey={expanded ? ['sources'] : []}
-          onChange={(keys) => {
-            const next = keys.includes('sources');
-            setExpanded(next);
-            if (next) probe(group.items);
-          }}
-          items={[
-            {
-              key: 'sources',
-              label: summary,
-              children: (
-                <Flex vertical gap={8}>
-                  <Flex justify="space-between" wrap gap={4}>
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      选择来源{sharedRemarks ? ` · 均 ${sharedRemarks}` : ''}
-                    </Typography.Text>
-                    {progress.total > 0 && (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {progress.done < progress.total
-                          ? `探测中 ${progress.done}/${progress.total}`
-                          : `${progress.best ? '最高 ' + progress.best : '未能探到画质'}${progress.failed > 0 ? ' · ' + progress.failed + ' 源未探到' : ''}`}
-                      </Typography.Text>
-                    )}
-                  </Flex>
-                  {sortedItems.map((item) => {
-                    const itemKey = qualityKey(item.sourceKey, item.vodId);
-                    const label = compactRemarks(item.remarks);
-                    return (
-                      <Card
-                        key={itemKey}
-                        size="small"
-                        hoverable
-                        role="button"
-                        tabIndex={0}
-                        style={{
-                          borderColor:
-                            itemKey === bestKey ? 'var(--ant-color-primary-border)' : undefined,
-                        }}
-                        styles={{ body: { padding: 8 } }}
-                        aria-label={`使用 ${item.sourceName} 播放${label && !sharedRemarks ? '，' + label : ''}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpen(item);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            onOpen(item);
-                          }
-                        }}
-                      >
-                        <Flex align="center" gap={8}>
-                          <Typography.Text ellipsis strong style={{ minWidth: 0, flex: 1 }}>
-                            {item.sourceName}
-                          </Typography.Text>
-                          <QualityBadge
-                            entry={qualities[itemKey]}
-                            loading={probing[itemKey]}
-                            onRetry={() => retry([item])}
-                            style={{
-                              minWidth: 52,
-                              textAlign: 'center',
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          />
-                          {!sharedRemarks && label && (
-                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                              {label}
-                            </Typography.Text>
-                          )}
-                          <PlayCircleOutlined style={{ fontSize: 18 }} aria-hidden />
-                        </Flex>
-                      </Card>
-                    );
-                  })}
-                </Flex>
-              ),
-            },
-          ]}
-        />
-      ) : (
-        summary
-      )}
+      <div className={`${searchStyles.resultLayout} ${sourcesVisible && multi ? searchStyles.withSources : ''}`}>
+        <div className={searchStyles.filmSummary}>
+          <div className={searchStyles.filmPoster}>
+            {showImg ? (
+              <SmartImage
+                url={group.pic}
+                mode={imageProxyMode}
+                customProxy={customImageProxy}
+                alt={group.name}
+                style={{ width: '100%', height: '100%' }}
+                onExhausted={() => setImgFailed(true)}
+              />
+            ) : <VideoCameraOutlined aria-hidden />}
+          </div>
+          <div className={searchStyles.filmInfo}>
+            <Typography.Title level={2} className={searchStyles.filmTitle}>{group.name}</Typography.Title>
+            <Flex wrap gap={6} className={searchStyles.filmMeta}>
+              {group.year && <span>{group.year}</span>}
+              {group.typeName && <span>{group.typeName}</span>}
+              {area && <span>{area}</span>}
+              {adult && <Tag color="magenta">18+</Tag>}
+            </Flex>
+            {group.remarks && <Typography.Text type="secondary">{group.remarks}</Typography.Text>}
+            <Flex wrap gap={6} style={{ marginTop: 12 }}>
+              <Tag>{multi ? `${group.items.length} 个来源` : group.items[0].sourceName}</Tag>
+              {multi && progress.best && <Tag color="gold">最高 {progress.best}</Tag>}
+              {singleKey && (
+                <QualityBadge entry={qualities[singleKey]} loading={probing[singleKey]}
+                  onRetry={singleItem ? () => retry([singleItem]) : undefined} />
+              )}
+            </Flex>
+            <div className={searchStyles.filmActions}>
+              <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => onOpen(primaryItem)}>
+                选集播放
+              </Button>
+              {multi && !featured && (
+                <Button aria-expanded={expanded} aria-controls={sourcesId} onClick={() => {
+                  setExpanded(!expanded);
+                  if (!expanded) probe(group.items);
+                }}>
+                  {expanded ? '收起来源' : '选择来源'}
+                </Button>
+              )}
+            </div>
+            {featured && multi && (
+              <Typography.Text type="secondary" className={searchStyles.playHint}>
+                {firstBest ? `优先使用已测画质最高的「${firstBest.sourceName}」` : '可直接选集，也可选择其他来源'}
+              </Typography.Text>
+            )}
+          </div>
+        </div>
+
+        {multi && sourcesVisible && (
+          <div id={sourcesId} className={searchStyles.sourcePanel}>
+            <div className={searchStyles.sourceHeading}>
+              <div>
+                <Typography.Text strong>选择播放来源</Typography.Text>
+                <Typography.Text type="secondary" className={searchStyles.sourceSubtitle}>
+                  {sharedRemarks ? `均 ${sharedRemarks} · ` : ''}按已测画质排序
+                </Typography.Text>
+              </div>
+              <Typography.Text type="secondary" className={searchStyles.probeProgress}>
+                {progress.total > 0 && progress.done < progress.total
+                  ? `画质检测 ${progress.done}/${progress.total}`
+                  : `${group.items.length} 个来源`}
+              </Typography.Text>
+            </div>
+            <div className={searchStyles.sourceGrid}>
+              {displayedItems.map((item) => {
+                const itemKey = qualityKey(item.sourceKey, item.vodId);
+                const label = compactRemarks(item.remarks);
+                return (
+                  <div key={itemKey} className={`${searchStyles.sourceRow} ${itemKey === bestKey ? searchStyles.bestSource : ''}`}>
+                    <button type="button" className={searchStyles.sourceSelect}
+                      aria-label={`使用 ${item.sourceName} 播放${label && !sharedRemarks ? '，' + label : ''}`}
+                      onClick={() => onOpen(item)}>
+                      <span className={searchStyles.sourceName}>{item.sourceName}</span>
+                      {!sharedRemarks && label && <span className={searchStyles.sourceRemarks}>{label}</span>}
+                      <PlayCircleOutlined aria-hidden />
+                    </button>
+                    <div className={searchStyles.sourceQuality}>
+                      <QualityBadge entry={qualities[itemKey]} loading={probing[itemKey]} onRetry={() => retry([item])} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {sortedItems.length > 6 && (
+              <Button type="text" block className={searchStyles.moreSources} aria-expanded={showAllSources}
+                onClick={() => setShowAllSources(!showAllSources)}>
+                {showAllSources ? '收起更多来源' : `查看全部 ${sortedItems.length} 个来源`}
+              </Button>
+            )}
+            {progress.failed > 0 && (
+              <Typography.Text type="secondary" className={searchStyles.probeNote}>
+                {progress.failed} 个来源暂未测到画质，仍可尝试播放
+              </Typography.Text>
+            )}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
-
 /** 单源影片卡片，复用聚合卡片的单源业务分支。 */
 export function VideoCard({ item, onClick }: { item: SearchResultItem; onClick: () => void }) {
   return <AggregatedCard group={buildGroup(item.name, item.year, [item])} onOpen={onClick} />;
